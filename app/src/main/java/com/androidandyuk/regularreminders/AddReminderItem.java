@@ -3,6 +3,7 @@ package com.androidandyuk.regularreminders;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +15,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 import static com.androidandyuk.regularreminders.MainActivity.itemLongPressed;
 import static com.androidandyuk.regularreminders.MainActivity.itemLongPressedPosition;
@@ -67,10 +69,11 @@ public class AddReminderItem extends AppCompatActivity {
             reminders.get(itemLongPressedPosition).name = name.getText().toString();
             reminders.get(itemLongPressedPosition).tag = tag.getText().toString();
             reminders.get(itemLongPressedPosition).frequency = Integer.parseInt(frequency.getText().toString());
-            resetAddItem();
         }
         saveReminders();
-        myAdapter.notifyDataSetChanged();
+        MainActivity.myAdapter.notifyDataSetChanged();
+        Collections.sort(reminders);
+        resetAddItem();
         finish();
     }
 
@@ -102,6 +105,7 @@ public class AddReminderItem extends AppCompatActivity {
             View myView = mInflater.inflate(R.layout.completed_listview, null);
 
             final String s = reminders.get(itemLongPressedPosition).completed.get(position);
+            Log.i("iLP " + itemLongPressedPosition,"Completed " + position);
 
             TextView colour = (TextView) myView.findViewById(R.id.colour);
 //            colour.setBackgroundColor();
@@ -110,7 +114,6 @@ public class AddReminderItem extends AppCompatActivity {
             dayTV.setText("Day");
 
             TextView dateTV = (TextView) myView.findViewById(R.id.dateTV);
-
             dateTV.setText(s);
 
             return myView;
@@ -149,7 +152,7 @@ public class AddReminderItem extends AppCompatActivity {
             finish();
             return true;
         }
-        myAdapter.notifyDataSetChanged();
+        MainActivity.myAdapter.notifyDataSetChanged();
         return super.onKeyDown(keyCode, event);
     }
 }

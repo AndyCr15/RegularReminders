@@ -25,7 +25,11 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
+
+import static com.androidandyuk.regularreminders.reminderItem.daysDifference;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -41,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     public static int itemLongPressedPosition = -1;
     public static reminderItem itemLongPressed = null;
 
+    public static boolean showDate = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -177,8 +182,19 @@ public class MainActivity extends AppCompatActivity {
             reminder.setText(s.name);
 
             TextView due = (TextView) myView.findViewById(R.id.due);
-            Long nextDue = s.nextDue();
-            due.setText("due in " + nextDue + " days");
+            Date nextDue = reminderItem.nextDue(s);
+            // shows as a date or number of days time
+            if(showDate) {
+                due.setText("Due on " + sdf.format(nextDue));
+            } else {
+                int dif = daysDifference(new Date(), nextDue);
+                if(dif>0){
+                    due.setText("Due in " + dif + " days");
+                } else if (dif<0){
+                    due.setText("" + Math.abs(dif) + " days late");
+                } else due.setText("Due today");
+
+            }
 
             return myView;
         }
@@ -219,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
                 for (String thisCompleted : thisReminder.completed) {
                     saveCompleted.add(thisCompleted);
                 }
-                ed.putString("completed", ObjectSerializer.serialize(saveCompleted)).apply();
+                ed.putString("completed"+thisReminder.name, ObjectSerializer.serialize(saveCompleted)).apply();
             } catch (Exception e) {
                 e.printStackTrace();
                 Log.i("Adding Completed", "Failed attempt");
@@ -265,7 +281,7 @@ public class MainActivity extends AppCompatActivity {
                     // we've checked each item has the same amount of info, nothing is missing
                     for (int x = 0; x < name.size(); x++) {
                         int thisFrequency = Integer.parseInt(frequency.get(x));
-                        reminderItem newReminder = new reminderItem(name.get(x), tag.get(x), thisFrequency);
+                        reminderItem newReminder = new reminderItem(name.get(x), tag.get(x), thisFrequency, "Loading");
                         Log.i("Adding", "" + x + "" + newReminder);
                         reminders.add(newReminder);
                     }
@@ -278,7 +294,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("Loading Reminders", "" + thisReminder);
                 ArrayList<String> saveCompleted = new ArrayList<>();
                 try {
-                    saveCompleted = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("completed", ObjectSerializer.serialize(new ArrayList<String>())));
+                    saveCompleted = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("completed"+thisReminder.name, ObjectSerializer.serialize(new ArrayList<String>())));
                 } catch (Exception e) {
                     e.printStackTrace();
                     Log.i("Loading Completed", "Failed attempt");
@@ -306,5 +322,6 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         Log.i("MainActivty", "onResume");
         loadReminders();
+        Collections.sort(reminders);
     }
 }
