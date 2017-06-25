@@ -2,9 +2,11 @@ package com.androidandyuk.regularreminders;
 
 import android.support.annotation.NonNull;
 
+import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
+import java.util.Date;
+
+import static com.androidandyuk.regularreminders.MainActivity.sdf;
 
 /**
  * Created by AndyCr15 on 24/06/2017.
@@ -14,42 +16,40 @@ public class reminderItem implements Comparable<reminderItem> {
     String name;
     String tag;
     int frequency;
-    List<Calendar> completed;
+    ArrayList<String> completed;
 
     public reminderItem(String name, String tag, int frequency) {
         this.name = name;
         this.tag = tag;
         this.frequency = frequency;
         this.completed = new ArrayList<>();
-        this.completed.add(Calendar.getInstance());
-//        Calendar testDate = new GregorianCalendar(2017, Calendar.JUNE, 18);
-//        this.completed.add(testDate);
-//        Log.i("TestDate","" + testDate);
+        this.completed.add(sdf.format(new Date()));
     }
 
-    public int nextDue(){
-        Calendar now = Calendar.getInstance();
-        Calendar last = this.completed.get(0);
-        last.add(Calendar.HOUR_OF_DAY, this.frequency);
-
-        int lastDay = last.DAY_OF_YEAR;
-        int nowDay = now.DAY_OF_YEAR;
-
-        return lastDay - nowDay;
+    public Long nextDue() {
+        Date now = new Date();
+        Date last = null;
+        try {
+            last = sdf.parse(this.completed.get(0));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return Math.abs(last.getTime()) + Math.abs(frequency) - Math.abs(now.getTime());
     }
 
-    @Override
-    public String toString() {
-        return name + " last completed " + this.completed.get(0);
-    }
+//    @Override
+//    public String toString() {
+//        return name + " last completed " + this.completed.get(0);
+//    }
 
 
     @Override
     public int compareTo(@NonNull reminderItem o) {
-        if(this.completed.get(0).getTime().before(o.completed.get(0).getTime())){
-            return -1;
-        } else {
-            return 1;
+        try {
+            return (int) (Math.abs(sdf.parse(this.completed.get(0)).getTime()) - Math.abs(sdf.parse(o.completed.get(0)).getTime()));
+        } catch (ParseException e) {
+            e.printStackTrace();
         }
+        return 0;
     }
 }
