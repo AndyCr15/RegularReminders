@@ -7,6 +7,19 @@
     android:background="@color/colorBackground"
     tools:context="com.androidandyuk.regularreminders.AddReminderItem">
 
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/floatingActionButton2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_margin="24dp"
+        android:clickable="true"
+        android:onClick="setReminderDate"
+        app:elevation="12dp"
+        app:fabSize="normal"
+        app:srcCompat="@android:drawable/ic_input_add" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -17,21 +30,66 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/nameTV"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
                 android:layout_weight="1"
-                android:text="Name of Reminder :"
-                android:textSize="18sp" />
+                android:background="@drawable/rounded_corners_accent_back"
+                android:orientation="vertical"
+                android:padding="8dp">
 
-            <EditText
-                android:id="@+id/nameET"
-                android:layout_width="200dp"
-                android:layout_height="wrap_content"
+                <TextView
+                    android:id="@+id/textView2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Reminder Name"
+                    android:textSize="10sp" />
+
+                <EditText
+                    android:id="@+id/nameET"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="4dp"
+                    android:layout_weight="1"
+                    android:background="@null"
+                    android:hint="Reminder Name"
+                    android:inputType="textCapSentences"
+                    android:padding="8dp"
+                    android:textAlignment="center" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="150dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
                 android:layout_weight="0"
-                android:hint="Reminder Name"
-                android:inputType="textCapWords" />
+                android:background="@drawable/rounded_corners_accent_back"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/textView3"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0"
+                    android:text="Tag"
+                    android:textSize="10sp" />
+
+                <EditText
+                    android:id="@+id/tagET"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="4dp"
+                    android:layout_weight="0"
+                    android:background="@null"
+                    android:hint="Tag"
+                    android:inputType="textCapWords"
+                    android:padding="8dp"
+                    android:textAlignment="center" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <LinearLayout
@@ -39,68 +97,81 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/tagTV"
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
                 android:layout_weight="1"
-                android:text="Name of Tag :"
-                android:textSize="18sp" />
+                android:background="@drawable/rounded_corners_accent_back"
+                android:orientation="vertical"
+                android:padding="8dp">
 
-            <EditText
-                android:id="@+id/tagET"
-                android:layout_width="200dp"
-                android:layout_height="wrap_content"
+                <TextView
+                    android:id="@+id/logType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Date"
+                    android:textAlignment="center"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/dateTV"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="date"
+                    android:textAlignment="center"
+                    android:textSize="18sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="150dp"
+                android:layout_height="match_parent"
+                android:layout_margin="4dp"
                 android:layout_weight="0"
-                android:hint="Tag Name"
-                android:inputType="textCapWords" />
+                android:background="@drawable/rounded_corners_accent_back"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/every"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Frequency"
+                    android:textAlignment="center"
+                    android:textSize="10sp" />
+
+                <EditText
+                    android:id="@+id/frequencyET"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="4dp"
+                    android:layout_weight="0"
+                    android:background="@null"
+                    android:hint="Freq (Days)"
+                    android:inputType="number"
+                    android:padding="8dp"
+                    android:textAlignment="center"
+                    android:textSize="18sp" />
+            </LinearLayout>
 
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/frequencyTV"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Frequency:"
-                android:textSize="18sp" />
-
-            <EditText
-                android:id="@+id/frequencyET"
-                android:layout_width="200dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="0"
-                android:hint="Every How Many Days"
-                android:inputType="number" />
-
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/addReminderButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/rounded_corners_reverse"
-            android:onClick="addReminder"
-            android:text="Add Reminder"
-            android:textColor="@android:color/white" />
 
         <TextView
             android:id="@+id/textView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_weight="0"
             android:text="Completed Log" />
 
         <ListView
             android:id="@+id/completedListView"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="wrap_content"
+            android:layout_weight="0" />
 
     </LinearLayout>
 </RelativeLayout>

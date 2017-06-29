@@ -24,6 +24,7 @@
         </activity>
         <activity android:name=".AddReminderItem"
             android:label="Reminder Details"
+            android:windowSoftInputMode="stateHidden|adjustResize"
             android:theme="@style/AppTheme">
 
         </activity>

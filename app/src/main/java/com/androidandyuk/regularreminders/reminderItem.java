@@ -95,4 +95,9 @@ public class reminderItem implements Comparable<reminderItem> {
 
         return daysDifference(resultDate1, resultDate2);
     }
+
+    @Override
+    public String toString() {
+        return "Item: " + name + " Freq: " + frequency;
+    }
 }

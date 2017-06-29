@@ -5,16 +5,22 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,10 +48,23 @@ public class MainActivity extends AppCompatActivity {
     public static ArrayList<reminderItem> reminders;
 
     // used to store what item might be being edited or deleted
+    public static int activeReminderPosition = -1;
+    public static reminderItem activeReminder = null;
+    // these should be for the individual lop selected from the activeReminder
     public static int itemLongPressedPosition = -1;
     public static reminderItem itemLongPressed = null;
 
     public static boolean showDate = false;
+    public static boolean storageAccepted;
+
+    public static Date staticTodayDate;
+    public static String staticTodayString;
+
+
+    EditText reminderName;
+    EditText reminderTag;
+    EditText reminderFrequency;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,6 +75,21 @@ public class MainActivity extends AppCompatActivity {
 
         // until I implement landscape view, lock the orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        staticTodayDate = new Date();
+        staticTodayString = sdf.format(staticTodayDate);
+
+        reminderName = (EditText) findViewById(R.id.reminderName);
+        reminderTag = (EditText) findViewById(R.id.reminderTag);
+        reminderFrequency = (EditText) findViewById(R.id.reminderFrequency);
+
+// requesting permissions to access storage and location
+        String[] perms = {"android.permission.READ_EXTERNAL_STORAGE"};
+        int permsRequestCode = 200;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(perms, permsRequestCode);
+        }
+
 
         reminders = new ArrayList<>();
 
@@ -70,8 +104,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int position, long l) {
                 // this is for editing a fueling, it stores the info in itemLongPressed
-                itemLongPressedPosition = position;
-                itemLongPressed = reminders.get(position);
+                activeReminderPosition = position;
+                activeReminder = reminders.get(position);
+                itemLongPressedPosition = 0;
 
                 Intent intent = new Intent(getApplicationContext(), AddReminderItem.class);
                 startActivity(intent);
@@ -106,37 +141,47 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
-
         });
 
-        Log.i("Saving sP","Beginning");
+        Log.i("Saving sP", "Beginning");
         String name = "rrSharedPref";
         int mode = MODE_PRIVATE;
         File path = new File(Environment.getExternalStorageDirectory().toString());
         File file = new File(path, "MySharedPreferences.xml");
-        Log.i("Saving sP","F:" + file);
-        saveSharedPreferences (name, mode, file);
+        Log.i("Saving sP", "F:" + file);
+        saveSharedPreferences(name, mode, file);
 
     }
 
+    @Override
+    public void onRequestPermissionsResult(int permsRequestCode, String[] permissions, int[] grantResults) {
 
-    private void saveSharedPreferences(String name, int mode, File file)
-    {
+        switch (permsRequestCode) {
+
+            case 200:
+
+                storageAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+                Log.i("Permissions STRG ", "" + storageAccepted);
+
+                break;
+
+        }
+
+    }
+
+    private void saveSharedPreferences(String name, int mode, File file) {
         SharedPreferences prefs = getSharedPreferences(name, mode);
-        try
-        {
+        try {
             FileWriter fw = new FileWriter(file);
             PrintWriter pw = new PrintWriter(fw);
-            Map<String,?> prefsMap = prefs.getAll();
-            for(Map.Entry<String,?> entry : prefsMap.entrySet())
-            {
+            Map<String, ?> prefsMap = prefs.getAll();
+            for (Map.Entry<String, ?> entry : prefsMap.entrySet()) {
                 pw.println(entry.getKey() + ": " + entry.getValue().toString());
             }
             pw.close();
             fw.close();
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             Log.wtf(getClass().getName(), e.toString());
         }
     }
@@ -144,6 +189,68 @@ public class MainActivity extends AppCompatActivity {
     public void goToAddReminderItem(View view) {
         Intent intent = new Intent(getApplicationContext(), AddReminderItem.class);
         startActivity(intent);
+    }
+
+    public void showAddReminder(View view) {
+        final View addReminder = findViewById(R.id.addReminder);
+        addReminder.setVisibility(View.VISIBLE);
+
+        reminderTag.setFocusableInTouchMode(true);
+//        reminderTag.requestFocus();
+
+        reminderFrequency.setFocusableInTouchMode(true);
+//        reminderFrequency.requestFocus();
+
+        reminderName.setFocusableInTouchMode(true);
+        reminderName.requestFocus();
+
+//        reminderName.setOnKeyListener(new View.OnKeyListener() {
+//            public boolean onKey(View v, int keyCode, KeyEvent event) {
+//                // If the event is a key-down event on the "enter" button
+//                if ((event.getAction() == KeyEvent.ACTION_DOWN) &&
+//                        (keyCode == KeyEvent.KEYCODE_ENTER)) {
+//                    // Perform action on key press
+//                    String name = reminderName.getText().toString();
+//                    String tag = reminderTag.getText().toString();
+//                    int freq = Integer.parseInt(reminderFrequency.getText().toString());
+//                    if(!name.equals("") && freq > 0) {
+//                        addReminder.setVisibility(View.INVISIBLE);
+//                        reminders.add(new reminderItem(name, tag, freq));
+//                        Collections.sort(reminders);
+//                        myAdapter.notifyDataSetChanged();
+//                        return true;
+//                    } else {
+//                        Toast.makeText(MainActivity.this, "Please complete all details", Toast.LENGTH_LONG).show();
+//                    }
+//                }
+//                return false;
+//            }
+//        });
+
+        reminderFrequency.setOnKeyListener(new View.OnKeyListener() {
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                // If the event is a key-down event on the "enter" button
+                if ((event.getAction() == KeyEvent.ACTION_DOWN) &&
+                        (keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    // Perform action on key press
+                    String name = reminderName.getText().toString();
+                    String tag = reminderTag.getText().toString();
+                    int freq = Integer.parseInt(reminderFrequency.getText().toString());
+                    if (!name.equals("") && freq > 0) {
+                        addReminder.setVisibility(View.INVISIBLE);
+                        reminders.add(new reminderItem(name, tag, freq));
+                        Collections.sort(reminders);
+                        myAdapter.notifyDataSetChanged();
+                        return true;
+                    } else {
+                        Toast.makeText(MainActivity.this, "Please complete all details", Toast.LENGTH_LONG).show();
+                    }
+                }
+                return false;
+            }
+        });
+
+
     }
 
     public class MyReminderAdapter extends BaseAdapter {
@@ -175,6 +282,23 @@ public class MainActivity extends AppCompatActivity {
 
             final reminderItem s = reminderDataAdapter.get(position);
 
+            Context context = App.getContext();
+
+            ImageView instantAdd = (ImageView) myView.findViewById(R.id.instantAdd);
+
+            instantAdd.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(getApplicationContext(), "Adding Today", Toast.LENGTH_SHORT).show();
+                    s.completed.add(staticTodayString);
+                    Collections.sort(s.completed, new StringDateComparator());
+                    Collections.sort(reminders);
+                    myAdapter.notifyDataSetChanged();
+                    saveReminders();
+                }
+            });
+
+
             TextView colour = (TextView) myView.findViewById(R.id.colour);
 //            colour.setBackgroundColor();
 
@@ -184,15 +308,23 @@ public class MainActivity extends AppCompatActivity {
             TextView due = (TextView) myView.findViewById(R.id.due);
             Date nextDue = reminderItem.nextDue(s);
             // shows as a date or number of days time
-            if(showDate) {
+            if (showDate) {
                 due.setText("Due on " + sdf.format(nextDue));
             } else {
                 int dif = daysDifference(new Date(), nextDue);
-                if(dif>0){
+                if (dif > 0) {
                     due.setText("Due in " + dif + " days");
-                } else if (dif<0){
+                    due.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
+                } else if (dif < 0) {
                     due.setText("" + Math.abs(dif) + " days late");
-                } else due.setText("Due today");
+                    due.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
+                } else {
+                    due.setText("Due today");
+                    due.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
+                }
 
             }
 
@@ -235,7 +367,7 @@ public class MainActivity extends AppCompatActivity {
                 for (String thisCompleted : thisReminder.completed) {
                     saveCompleted.add(thisCompleted);
                 }
-                ed.putString("completed"+thisReminder.name, ObjectSerializer.serialize(saveCompleted)).apply();
+                ed.putString("completed" + thisReminder.name, ObjectSerializer.serialize(saveCompleted)).apply();
             } catch (Exception e) {
                 e.printStackTrace();
                 Log.i("Adding Completed", "Failed attempt");
@@ -294,7 +426,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("Loading Reminders", "" + thisReminder);
                 ArrayList<String> saveCompleted = new ArrayList<>();
                 try {
-                    saveCompleted = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("completed"+thisReminder.name, ObjectSerializer.serialize(new ArrayList<String>())));
+                    saveCompleted = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("completed" + thisReminder.name, ObjectSerializer.serialize(new ArrayList<String>())));
                 } catch (Exception e) {
                     e.printStackTrace();
                     Log.i("Loading Completed", "Failed attempt");
@@ -311,6 +443,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        // this must be empty as back is being dealt with in onKeyDown
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            View addRedminder = findViewById(R.id.addReminder);
+            if (addRedminder.getVisibility() == addRedminder.VISIBLE) {
+                addRedminder.setVisibility(View.INVISIBLE);
+            } else {
+                finish();
+                return true;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+
+    @Override
     protected void onPause() {
         super.onPause();
         Log.i("MainActivty", "onPause");
@@ -320,8 +472,9 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i("MainActivty", "onResume");
+        Log.i("MainActivity", "onResume");
         loadReminders();
         Collections.sort(reminders);
+        myAdapter.notifyDataSetChanged();
     }
 }
