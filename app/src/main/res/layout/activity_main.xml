@@ -54,6 +54,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:weightSum="1"
         android:orientation="vertical">
 
         <ListView
@@ -62,6 +63,31 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:dividerHeight="5dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/loadBu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:background="@drawable/rounded_corners_reverse"
+                android:onClick="loadPressed"
+                android:text="load" />
+
+            <Button
+                android:id="@+id/saveBu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="0"
+                android:background="@drawable/rounded_corners_back"
+                android:onClick="savePressed"
+                android:text="save" />
+        </LinearLayout>
 
     </LinearLayout>
 

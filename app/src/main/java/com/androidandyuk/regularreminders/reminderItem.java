@@ -77,7 +77,7 @@ public class reminderItem implements Comparable<reminderItem> {
             e.printStackTrace();
         }
 
-        c.add(Calendar.DATE, o.frequency);
+        c.add(Calendar.DATE, o.frequency + 1);
 
         Date resultDate = new Date(c.getTimeInMillis());
 

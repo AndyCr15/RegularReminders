@@ -33,6 +33,7 @@ import static com.androidandyuk.regularreminders.MainActivity.activeReminder;
 import static com.androidandyuk.regularreminders.MainActivity.activeReminderPosition;
 import static com.androidandyuk.regularreminders.MainActivity.itemLongPressedPosition;
 import static com.androidandyuk.regularreminders.MainActivity.reminders;
+import static com.androidandyuk.regularreminders.MainActivity.saveCompletedToGoogle;
 import static com.androidandyuk.regularreminders.MainActivity.saveReminders;
 import static com.androidandyuk.regularreminders.MainActivity.sdf;
 import static com.androidandyuk.regularreminders.MainActivity.staticTodayString;
@@ -92,6 +93,7 @@ public class AddReminderItem extends AppCompatActivity {
                                         myAdapter.notifyDataSetChanged();
                                         Toast.makeText(context, "Deleted!", Toast.LENGTH_SHORT).show();
                                         saveReminders();
+                                        saveCompletedToGoogle();
                                     }
                                 })
                                 .setNegativeButton("No", null)
@@ -136,6 +138,7 @@ public class AddReminderItem extends AppCompatActivity {
                 activeReminder.completed.add(sdfDate);
                 Collections.sort(activeReminder.completed, new StringDateComparator());
                 saveReminders();
+                saveCompletedToGoogle();
                 myAdapter.notifyDataSetChanged();
             }
         };
@@ -191,6 +194,7 @@ public class AddReminderItem extends AppCompatActivity {
         reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
 
         saveReminders();
+        saveCompletedToGoogle();
         MainActivity.myAdapter.notifyDataSetChanged();
         Collections.sort(reminders);
         resetAddItem();

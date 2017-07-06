@@ -1,5 +1,7 @@
 package com.androidandyuk.regularreminders;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -59,6 +61,7 @@ import java.io.PrintWriter;
 import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
@@ -97,6 +100,8 @@ public class MainActivity extends AppCompatActivity {
     public static String staticTodayString;
 
     public static SQLiteDatabase remindersDB;
+
+    public static int reminderHour = 20;
 
     EditText reminderName;
     EditText reminderTag;
@@ -148,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
                 activeReminderPosition = position;
                 activeReminder = reminders.get(position);
                 itemLongPressedPosition = 0;
-
+                saveToGoogle();
                 Intent intent = new Intent(getApplicationContext(), AddReminderItem.class);
                 startActivity(intent);
 
@@ -338,6 +343,47 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    public void setNotifications() {
+        Log.i("setNotifications", "Starting");
+        if (reminders.size() >= 0) {
+            Calendar calendar = Calendar.getInstance();
+
+            Date nextDue = reminderItem.nextDue(reminders.get(0));
+            int dif = daysDifference(new Date(), nextDue);
+            if (dif < 0) {
+                // if it's overdue, set to alarm today
+                dif = 0;
+            }
+
+            if (dif == 0 && (calendar.get(Calendar.HOUR_OF_DAY) >= reminderHour)) {
+                // it's due today, but it's passed alarm time
+                dif = 1;
+            }
+
+            calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
+            calendar.add(Calendar.DAY_OF_YEAR, dif);
+
+//            calendar.add(Calendar.SECOND, 10);
+
+            Log.i("DaysUntilNextReminder", "" + dif);
+
+            Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+        }
+    }
+
+    public void loadPressed(View view) {
+        loadFromGoogle();
+    }
+
+    public void savePressed(View view) {
+        saveToGoogle();
+    }
+
     public class MyReminderAdapter extends BaseAdapter {
         public ArrayList<reminderItem> reminderDataAdapter;
 
@@ -384,7 +430,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-
             TextView colour = (TextView) myView.findViewById(R.id.colour);
 //            colour.setBackgroundColor();
 
@@ -422,11 +467,14 @@ public class MainActivity extends AppCompatActivity {
     public static void saveToGoogle() {
         Log.i("saveToGoogle", "Starting");
         if (user != null) {
+            Log.i("saveToGoogle", "user is not null");
             database = FirebaseDatabase.getInstance();
             DatabaseReference myRef = database.getReference();
 
-//        myRef.child(user.getUid()).child("Total").setValue("" + reminders.size());
+            // clear anything previously saved for this user
+            myRef.child(user.getUid()).removeValue();
 
+            // save back the reminders for this user
             for (int i = 0; i < reminders.size(); i++) {
                 myRef.child(user.getUid()).child("Item" + i).child("Name").setValue(reminders.get(i).name);
                 myRef.child(user.getUid()).child("Item" + i).child("Tag").setValue(reminders.get(i).tag);
@@ -436,6 +484,28 @@ public class MainActivity extends AppCompatActivity {
                 } catch (IOException e) {
                     e.printStackTrace();
                     Log.d("saveToGoogle", "Error saving completed " + i);
+                }
+            }
+        }
+    }
+
+    public static void saveCompletedToGoogle() {
+        Log.i("saveCompletedToGoogle", "Active Reminder " + activeReminderPosition);
+        if (user != null) {
+            Log.i("saveCompletedToGoogle", "user is not null");
+            database = FirebaseDatabase.getInstance();
+            DatabaseReference myRef = database.getReference();
+            if (activeReminderPosition > -1) {
+                Log.i("saveCompletedToGoogle", "activeReminderPosition is " + activeReminderPosition);
+                // clear anything previously saved for this item completed
+                myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Completed").removeValue();
+
+                // save back the completed for this user
+                try {
+                    myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Completed").setValue(ObjectSerializer.serialize(reminders.get(activeReminderPosition).completed));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Log.d("saveToGoogle", "Error saving completed");
                 }
             }
         }
@@ -546,7 +616,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 reminders.add(newReminder);
 
-            } while(c.moveToNext());
+            } while (c.moveToNext());
 
 
         } catch (Exception e) {
@@ -716,6 +786,7 @@ public class MainActivity extends AppCompatActivity {
         super.onStop();
         Log.i("onStop", "Starting");
         mAuth.removeAuthStateListener(mAuthListener);
+        setNotifications();
     }
 
     @Override
@@ -739,5 +810,6 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         Log.i("onDestroy", "Starting");
         saveToGoogle();
+
     }
 }
