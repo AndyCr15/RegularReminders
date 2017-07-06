@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "474215484328",
+    "firebase_url": "https://regularreminders-78d14.firebaseio.com",
+    "project_id": "regularreminders-78d14",
+    "storage_bucket": "regularreminders-78d14.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474215484328:android:51e059d12a9184be",
+        "android_client_info": {
+          "package_name": "com.androidandyuk.regularreminders"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "474215484328-98bjsaah52osbtr9cnnqinpkd6bh73mf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.androidandyuk.regularreminders",
+            "certificate_hash": "4fc4e949725f2ecef655554c896ef128275e2d75"
+          }
+        },
+        {
+          "client_id": "474215484328-6ti4dtsert3jtf8rpp50sbij3s0gucqb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCnxn3gQvq9N7EOvXseLDzwqtO5oCDUGw"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "474215484328-6ti4dtsert3jtf8rpp50sbij3s0gucqb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

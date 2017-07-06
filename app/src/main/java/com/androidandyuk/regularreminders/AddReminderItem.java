@@ -298,12 +298,12 @@ public class AddReminderItem extends AppCompatActivity {
         tag = (EditText) findViewById(R.id.tagET);
         frequency = (EditText) findViewById(R.id.frequencyET);
 
-        name.setText(null);
-        name.clearFocus();
-        tag.setText(null);
-        tag.clearFocus();
-        frequency.setText(null);
-        frequency.clearFocus();
+//        name.setText(null);
+//        name.clearFocus();
+//        tag.setText(null);
+//        tag.clearFocus();
+//        frequency.setText(null);
+//        frequency.clearFocus();
     }
 
     @Override

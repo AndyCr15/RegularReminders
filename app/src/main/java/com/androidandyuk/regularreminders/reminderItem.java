@@ -25,7 +25,7 @@ public class reminderItem implements Comparable<reminderItem> {
         this.tag = tag;
         this.frequency = frequency;
         String today = sdf.format(new Date());
-        Log.i("reminderItem", "Date " + today);
+        Log.i("reminderItem", "Creating new item " + name);
         this.completed.add(today);
     }
 
@@ -62,8 +62,6 @@ public class reminderItem implements Comparable<reminderItem> {
             //Convert long to String
             dayDifference = (int) differenceDates;
 
-            Log.i("daysDifference", "" + dayDifference);
-
         } catch (Exception exception) {
             Log.i("DIDN'T WORK", "exception " + exception);
         }
@@ -83,7 +81,6 @@ public class reminderItem implements Comparable<reminderItem> {
 
         Date resultDate = new Date(c.getTimeInMillis());
 
-        Log.i("Item " + o.name, " nextDue " + resultDate);
         return resultDate;
     }
 

@@ -6,15 +6,20 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -25,10 +30,33 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.GenericTypeIndicator;
+import com.google.firebase.database.ValueEventListener;
+
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,6 +71,15 @@ public class MainActivity extends AppCompatActivity {
     public static SharedPreferences.Editor ed;
     public static SimpleDateFormat sdf = new SimpleDateFormat("dd/MMM/yyyy");
 
+    public static FirebaseAuth mAuth;
+    public static FirebaseAuth.AuthStateListener mAuthListener;
+    public static FirebaseDatabase database;
+    public static FirebaseUser user;
+    String signInOut = "Sign In";
+
+    private static final int RC_SIGN_IN = 9001;
+    private GoogleApiClient mGoogleApiClient;
+
     static MyReminderAdapter myAdapter;
     public static ArrayList<String> tags;
     public static ArrayList<reminderItem> reminders;
@@ -52,7 +89,6 @@ public class MainActivity extends AppCompatActivity {
     public static reminderItem activeReminder = null;
     // these should be for the individual lop selected from the activeReminder
     public static int itemLongPressedPosition = -1;
-    public static reminderItem itemLongPressed = null;
 
     public static boolean showDate = false;
     public static boolean storageAccepted;
@@ -60,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
     public static Date staticTodayDate;
     public static String staticTodayString;
 
+    public static SQLiteDatabase remindersDB;
 
     EditText reminderName;
     EditText reminderTag;
@@ -70,11 +107,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        Log.i("onCreate", "Starting");
+
         sharedPreferences = this.getSharedPreferences("regularreminders", Context.MODE_PRIVATE);
         ed = sharedPreferences.edit();
 
         // until I implement landscape view, lock the orientation
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        remindersDB = this.openOrCreateDatabase("Reminders", MODE_PRIVATE, null);
 
         staticTodayDate = new Date();
         staticTodayString = sdf.format(staticTodayDate);
@@ -83,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         reminderTag = (EditText) findViewById(R.id.reminderTag);
         reminderFrequency = (EditText) findViewById(R.id.reminderFrequency);
 
-// requesting permissions to access storage and location
+        // requesting permissions to access storage and location
         String[] perms = {"android.permission.READ_EXTERNAL_STORAGE"};
         int permsRequestCode = 200;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -143,19 +184,60 @@ public class MainActivity extends AppCompatActivity {
 
         });
 
-        Log.i("Saving sP", "Beginning");
-        String name = "rrSharedPref";
-        int mode = MODE_PRIVATE;
-        File path = new File(Environment.getExternalStorageDirectory().toString());
-        File file = new File(path, "MySharedPreferences.xml");
-        Log.i("Saving sP", "F:" + file);
-        saveSharedPreferences(name, mode, file);
+//        Log.i("Saving sP", "Beginning");
+//        String name = "rrSharedPref";
+//        int mode = MODE_PRIVATE;
+//        File path = new File(Environment.getExternalStorageDirectory().toString());
+//        File file = new File(path, "MySharedPreferences.xml");
+//        Log.i("Saving sP", "F:" + file);
+//        saveSharedPreferences(name, mode, file);
+
+        File dir = getDatabasePath("reminders");
+        Log.i("DBPath", "" + dir.getAbsolutePath());
+
+
+        // Configure Google Sign In
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
+        mGoogleApiClient = new GoogleApiClient.Builder(getApplicationContext())
+                .enableAutoManage(this, new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+                        Toast.makeText(MainActivity.this, "Error", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+
+
+        mAuthListener = new FirebaseAuth.AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                user = firebaseAuth.getCurrentUser();
+                if (user != null) {
+                    // User is signed in
+                    Log.d("Login", "onAuthStateChanged:signed_in:" + user.getUid());
+                    Toast.makeText(MainActivity.this, "Signed in as " + user.getDisplayName(), Toast.LENGTH_SHORT).show();
+                    Log.i("SignedIn", "onAuthStateChanged");
+                    loadFromGoogle();
+                    myAdapter.notifyDataSetChanged();
+                } else {
+                    // User is signed out
+                    Log.d("Login", "onAuthStateChanged:signed_out");
+                }
+            }
+        };
+
+        mAuth = FirebaseAuth.getInstance();
 
     }
 
     @Override
     public void onRequestPermissionsResult(int permsRequestCode, String[] permissions, int[] grantResults) {
-
+        Log.i("onRequestPermissionsRes", "Starting");
         switch (permsRequestCode) {
 
             case 200:
@@ -186,14 +268,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void goToAddReminderItem(View view) {
-        Intent intent = new Intent(getApplicationContext(), AddReminderItem.class);
-        startActivity(intent);
-    }
-
     public void showAddReminder(View view) {
         final View addReminder = findViewById(R.id.addReminder);
         addReminder.setVisibility(View.VISIBLE);
+
+        Log.i("showAddReminder", "Starting");
 
         reminderTag.setFocusableInTouchMode(true);
 //        reminderTag.requestFocus();
@@ -239,6 +318,12 @@ public class MainActivity extends AppCompatActivity {
                     if (!name.equals("") && freq > 0) {
                         addReminder.setVisibility(View.INVISIBLE);
                         reminders.add(new reminderItem(name, tag, freq));
+
+                        reminderName.setText("");
+                        reminderTag.setText("");
+                        reminderFrequency.setText("");
+
+
                         Collections.sort(reminders);
                         myAdapter.notifyDataSetChanged();
                         return true;
@@ -255,6 +340,7 @@ public class MainActivity extends AppCompatActivity {
 
     public class MyReminderAdapter extends BaseAdapter {
         public ArrayList<reminderItem> reminderDataAdapter;
+
 
         public MyReminderAdapter(ArrayList<reminderItem> reminderDataAdapter) {
             this.reminderDataAdapter = reminderDataAdapter;
@@ -333,114 +419,270 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public static void saveReminders() {
-        ed.putInt("reminderCount", reminders.size()).apply();
+    public static void saveToGoogle() {
+        Log.i("saveToGoogle", "Starting");
+        if (user != null) {
+            database = FirebaseDatabase.getInstance();
+            DatabaseReference myRef = database.getReference();
 
-        ArrayList<String> name = new ArrayList<>();
-        ArrayList<String> tag = new ArrayList<>();
-        ArrayList<String> frequency = new ArrayList<>();
+//        myRef.child(user.getUid()).child("Total").setValue("" + reminders.size());
 
-        for (reminderItem thisReminder : reminders) {
-
-            Log.i("SavingReminders", "" + thisReminder);
-
-            name.add(thisReminder.name);
-            tag.add(thisReminder.tag);
-            frequency.add(Integer.toString(thisReminder.frequency));
-
-        }
-
-        try {
-            ed.putString("name", ObjectSerializer.serialize(name)).apply();
-            ed.putString("tag", ObjectSerializer.serialize(tag)).apply();
-            ed.putString("frequency", ObjectSerializer.serialize(frequency)).apply();
-        } catch (IOException e) {
-            Log.i("Adding details", "Failed attempt");
-            e.printStackTrace();
-        }
-
-
-        for (reminderItem thisReminder : reminders) {
-            Log.i("Saving Completed", "" + thisReminder);
-            try {
-                ArrayList<String> saveCompleted = new ArrayList<>();
-                for (String thisCompleted : thisReminder.completed) {
-                    saveCompleted.add(thisCompleted);
+            for (int i = 0; i < reminders.size(); i++) {
+                myRef.child(user.getUid()).child("Item" + i).child("Name").setValue(reminders.get(i).name);
+                myRef.child(user.getUid()).child("Item" + i).child("Tag").setValue(reminders.get(i).tag);
+                myRef.child(user.getUid()).child("Item" + i).child("Freq").setValue(Integer.toString(reminders.get(i).frequency));
+                try {
+                    myRef.child(user.getUid()).child("Item" + i).child("Completed").setValue(ObjectSerializer.serialize(reminders.get(i).completed));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    Log.d("saveToGoogle", "Error saving completed " + i);
                 }
-                ed.putString("completed" + thisReminder.name, ObjectSerializer.serialize(saveCompleted)).apply();
-            } catch (Exception e) {
-                e.printStackTrace();
-                Log.i("Adding Completed", "Failed attempt");
             }
         }
+    }
 
+    public static void loadFromGoogle() {
+        if (user != null) {
+
+            Log.i("loadFromGoogle", "Starting");
+
+            database = FirebaseDatabase.getInstance();
+            DatabaseReference myRef = database.getReference().child(user.getUid());
+
+            myRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+
+                    Log.i("loadFromGoogle", "onDataChange");
+                    reminders.clear();
+
+                    for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                        GenericTypeIndicator<Map<String, String>> genericTypeIndicator = new GenericTypeIndicator<Map<String, String>>() {
+                        };
+                        Map<String, String> map = ds.getValue(genericTypeIndicator);
+
+                        String name = map.get("Name");
+                        String tag = map.get("Tag");
+                        int freq = Integer.parseInt(map.get("Freq"));
+                        String completed = map.get("Completed");
+
+                        ArrayList<String> completedArray = new ArrayList<>();
+                        try {
+                            completedArray = (ArrayList<String>) ObjectSerializer.deserialize(completed);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        reminderItem newReminder = new reminderItem(name, tag, freq, "Loading");
+
+                        for (String thisCompleted : completedArray) {
+                            newReminder.completed.add(thisCompleted);
+                        }
+
+                        reminders.add(newReminder);
+
+                    }
+                    Collections.sort(reminders);
+                    myAdapter.notifyDataSetChanged();
+                    saveReminders();
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
+    }
+
+
+    public static void saveReminders() {
+        Log.i("saveReminders", "reminders.size() " + reminders.size());
+        try {
+
+            remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (name VARCHAR, tag VARCHAR, freq INT(4), completed VARCHAR)");
+            remindersDB.delete("reminders", null, null);
+
+            for (reminderItem thisReminder : reminders) {
+
+                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
+
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+        }
 
     }
 
     public static void loadReminders() {
-        Log.i("Main Activity", "loadingReminders");
-        int reminderCount = sharedPreferences.getInt("reminderCount", 0);
 
-        // for testing, if reminderCourt=0, add a test
-        if (reminderCount == 0) {
-            reminders.add(new reminderItem("Test", "Tag", 120));
-            Log.i("reminderCount", "" + reminders.size());
-            saveReminders();
-        } else {
+        reminders.clear();
+        Log.i("LoadingDB", "reminder.size() " + reminders.size());
 
-            Log.i("ReminderSize", "" + reminderCount);
-            reminders.clear();
+        try {
 
-            ArrayList<String> name = new ArrayList<>();
-            ArrayList<String> tag = new ArrayList<>();
-            ArrayList<String> frequency = new ArrayList<>();
+            Cursor c = remindersDB.rawQuery("SELECT * FROM reminders", null);
 
-            try {
+            int nameIndex = c.getColumnIndex("name");
+            int tagIndex = c.getColumnIndex("tag");
+            int freqIndex = c.getColumnIndex("freq");
+            int completedIndex = c.getColumnIndex("completed");
 
-                name = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("name", ObjectSerializer.serialize(new ArrayList<String>())));
-                tag = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("tag", ObjectSerializer.serialize(new ArrayList<String>())));
-                frequency = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("frequency", ObjectSerializer.serialize(new ArrayList<String>())));
+            c.moveToFirst();
 
-                Log.i("Reminders Restored ", "Count :" + name.size());
-            } catch (Exception e) {
-                e.printStackTrace();
-                Log.i("Loading Reminders", "Failed attempt");
-            }
+            do {
+                Log.i("Cursor: nameIndex", "" + nameIndex);
+                ArrayList<String> completed;
 
-            if (name.size() > 0 && tag.size() > 0 && frequency.size() > 0) {
-                // we've checked there is some info
-                if (name.size() == tag.size() && tag.size() == frequency.size()) {
-                    // we've checked each item has the same amount of info, nothing is missing
-                    for (int x = 0; x < name.size(); x++) {
-                        int thisFrequency = Integer.parseInt(frequency.get(x));
-                        reminderItem newReminder = new reminderItem(name.get(x), tag.get(x), thisFrequency, "Loading");
-                        Log.i("Adding", "" + x + "" + newReminder);
-                        reminders.add(newReminder);
-                    }
+                completed = (ArrayList<String>) ObjectSerializer.deserialize(c.getString(completedIndex));
+
+                reminderItem newReminder = new reminderItem(c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), "Loading");
+
+                for (String thisCompleted : completed) {
+                    newReminder.completed.add(thisCompleted);
                 }
-            }
+                reminders.add(newReminder);
+
+            } while(c.moveToNext());
 
 
-            for (reminderItem thisReminder : reminders) {
-                thisReminder.completed.clear();
-                Log.i("Loading Reminders", "" + thisReminder);
-                ArrayList<String> saveCompleted = new ArrayList<>();
-                try {
-                    saveCompleted = (ArrayList<String>) ObjectSerializer.deserialize(sharedPreferences.getString("completed" + thisReminder.name, ObjectSerializer.serialize(new ArrayList<String>())));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.i("Loading Completed", "Failed attempt");
-                }
+        } catch (Exception e) {
 
-                if (saveCompleted.size() > 0) {
-                    // we've checked there is some info
-                    for (int x = 0; x < saveCompleted.size(); x++) {
-                        thisReminder.completed.add(saveCompleted.get(x));
-                    }
-                }
+            Log.i("LoadingDB", "Caught Error");
+            e.printStackTrace();
+
+        }
+
+    }
+
+    private void exportDB() {
+        Log.i("exportDB", "Starting");
+        File sd = Environment.getExternalStorageDirectory();
+        File data = Environment.getDataDirectory();
+        FileChannel source = null;
+        FileChannel destination = null;
+        String currentDBPath = "/data/" + "com.androidandyuk.regularreminders" + "/databases/Reminders";
+        String backupDBPath = "Reminders.db";
+        File currentDB = new File(data, currentDBPath);
+        File backupDB = new File(sd, backupDBPath);
+        try {
+            source = new FileInputStream(currentDB).getChannel();
+            destination = new FileOutputStream(backupDB).getChannel();
+            destination.transferFrom(source, 0, source.size());
+            source.close();
+            destination.close();
+            Toast.makeText(this, "DB Exported!", Toast.LENGTH_LONG).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Exported Failed!", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    //   GOOGLE SIGN IN
+
+    private void signIn() {
+        Log.i("signIn", "Starting");
+        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.i("onActivityResult", "Starting");
+        // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
+        if (requestCode == RC_SIGN_IN) {
+            GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            if (result.isSuccess()) {
+                // Google Sign In was successful, authenticate with Firebase
+                GoogleSignInAccount account = result.getSignInAccount();
+                firebaseAuthWithGoogle(account);
+                Log.i("SignedIn", "OnActivityResult");
+            } else {
+                // Google Sign In failed, update UI appropriately
+                Log.i("onActivityResult", "Sign in failed");
             }
         }
     }
+
+    private void firebaseAuthWithGoogle(GoogleSignInAccount account) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(), null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.i("GoogleSignIn", "signInWithCredential:success");
+                            user = mAuth.getCurrentUser();
+//                            updateUI(user);
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Log.i("GoogleSignIn", "signInWithCredential:failure", task.getException());
+                            Toast.makeText(MainActivity.this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+                        }
+
+                        // ...
+                    }
+                });
+        Log.i("SignedIn", "firebaseAuthWithGoogle");
+    }
+
+    public void signOut() {
+        saveToGoogle();
+        mAuth.signOut();
+        Auth.GoogleSignInApi.signOut(mGoogleApiClient);
+        Log.i("Signed Out", "Complete");
+        Toast.makeText(MainActivity.this, "Signed Out", Toast.LENGTH_SHORT).show();
+
+    }
+
+    //   GOOGLE SIGN IN END
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+
+        super.onCreateOptionsMenu(menu);
+
+        if (user == null) {
+            signInOut = "Sign In";
+        } else {
+            signInOut = "Sign Out";
+        }
+
+        menu.add(0, 0, 0, signInOut).setShortcut('3', 'c');
+        menu.add(0, 1, 0, "Export DB to SD").setShortcut('3', 'c');
+
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int menu_choice = item.getItemId();
+        switch (menu_choice) {
+            case 0:
+                Log.i("Option", "0");
+
+                if (user == null) {
+                    signIn();
+                } else {
+                    signOut();
+                }
+
+                return true;
+            case 1:
+                Log.i("Option", "1");
+                exportDB();
+                return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
 
     @Override
     public void onBackPressed() {
@@ -461,11 +703,25 @@ public class MainActivity extends AppCompatActivity {
         return super.onKeyDown(keyCode, event);
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.i("onStart", "Starting");
+        mAuth.addAuthStateListener(mAuthListener);
+        user = mAuth.getCurrentUser();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Log.i("onStop", "Starting");
+        mAuth.removeAuthStateListener(mAuthListener);
+    }
 
     @Override
     protected void onPause() {
         super.onPause();
-        Log.i("MainActivty", "onPause");
+        Log.i("MainActivity", "onPause");
         saveReminders();
     }
 
@@ -476,5 +732,12 @@ public class MainActivity extends AppCompatActivity {
         loadReminders();
         Collections.sort(reminders);
         myAdapter.notifyDataSetChanged();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.i("onDestroy", "Starting");
+        saveToGoogle();
     }
 }
