@@ -22,6 +22,7 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import static com.androidandyuk.regularreminders.MainActivity.activeReminderPosi
 import static com.androidandyuk.regularreminders.MainActivity.itemLongPressedPosition;
 import static com.androidandyuk.regularreminders.MainActivity.reminders;
 import static com.androidandyuk.regularreminders.MainActivity.saveCompletedToGoogle;
+import static com.androidandyuk.regularreminders.MainActivity.saveReminderToGoogle;
 import static com.androidandyuk.regularreminders.MainActivity.saveReminders;
 import static com.androidandyuk.regularreminders.MainActivity.sdf;
 import static com.androidandyuk.regularreminders.MainActivity.staticTodayString;
@@ -45,8 +47,9 @@ public class AddReminderItem extends AppCompatActivity {
     EditText name;
     EditText tag;
     EditText frequency;
-    TextView dateTV;
-    TextView logType;
+    TextView countTV;
+    TextView countHeader;
+    ToggleButton notifyToggle;
 
     private DatePickerDialog.OnDateSetListener logDateSetListener;
 
@@ -114,19 +117,19 @@ public class AddReminderItem extends AppCompatActivity {
         name = (EditText) findViewById(R.id.nameET);
         tag = (EditText) findViewById(R.id.tagET);
         frequency = (EditText) findViewById(R.id.frequencyET);
-        dateTV = (TextView) findViewById(R.id.dateTV);
-        logType = (TextView) findViewById(R.id.logType);
+        countTV = (TextView) findViewById(R.id.countTV);
+        countHeader = (TextView) findViewById(R.id.countHeader);
+        notifyToggle = (ToggleButton) findViewById(R.id.notifyToggle);
 
-        dateTV.setText(staticTodayString);
+        countTV.setText(Integer.toString(reminders.get(activeReminderPosition).completed.size()));
+        name.setText(reminders.get(activeReminderPosition).name);
+        tag.setText(reminders.get(activeReminderPosition).tag);
+        frequency.setText(Integer.toString(reminders.get(activeReminderPosition).frequency));
+        notifyToggle.setChecked(reminders.get(activeReminderPosition).notify);
 
-        if (activeReminder != null) {
-            name.setText(reminders.get(activeReminderPosition).name);
-            tag.setText(reminders.get(activeReminderPosition).tag);
-            frequency.setText(Integer.toString(reminders.get(activeReminderPosition).frequency));
-            dateTV.setText(reminders.get(activeReminderPosition).completed.get(itemLongPressedPosition));
-            logType.setText("Last Completed");
-        } else {
-            logType.setText("Created");
+        if (reminders.get(activeReminderPosition).notify) {
+            notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
+
         }
 
         logDateSetListener = new DatePickerDialog.OnDateSetListener() {
@@ -143,14 +146,37 @@ public class AddReminderItem extends AppCompatActivity {
             }
         };
 
+        notifyToggle.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                if ( notifyToggle.isChecked()) {
+//                    notifyToggle.setTextOff("ON");
+                    notifyToggle.setChecked(true);
+                    reminders.get(activeReminderPosition).notify = true;
+                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
+                    Log.i("SetNotify","" + reminders.get(activeReminderPosition).notify);
+
+                } else {
+//                    notifyToggle.setTextOn("OFF");
+                    notifyToggle.setChecked(false);
+                    reminders.get(activeReminderPosition).notify = false;
+                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners_back));
+                    Log.i("SetNotify","" + reminders.get(activeReminderPosition).notify);
+
+                }
+            }
+        });
     }
 
     public void setReminderDate(View view) {
+        Log.i("setReminderDate","Started");
         itemLongPressedPosition = -1;
         updateReminderDate();
     }
 
     public void updateReminderDate() {
+        Log.i("updateReminderDate","Started");
         String thisDateString = "";
         // read the current date as we're editing and put it in thisDateString instead of staticTodayString
         if (itemLongPressedPosition >= 0) {
@@ -188,13 +214,17 @@ public class AddReminderItem extends AppCompatActivity {
     }
 
     public void updateReminder() {
+        Log.i("updateReminder","Started");
         // we're editing, so just update the details
         reminders.get(activeReminderPosition).name = name.getText().toString();
         reminders.get(activeReminderPosition).tag = tag.getText().toString();
         reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
+        reminders.get(activeReminderPosition).notify = notifyToggle.isChecked();
 
         saveReminders();
+        saveReminderToGoogle();
         saveCompletedToGoogle();
+
 //        MainActivity.myAdapter.notifyDataSetChanged();
 //        Collections.sort(reminders);
 //        resetAddItem();

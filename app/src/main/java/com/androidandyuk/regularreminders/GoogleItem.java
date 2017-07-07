@@ -8,6 +8,7 @@ public class GoogleItem {
     String Name;
     String Tag;
     int Freq;
+    Boolean Notify;
     String Completed;
 
     public GoogleItem() {
@@ -23,6 +24,10 @@ public class GoogleItem {
 
     public String getTag() {
         return Tag;
+    }
+
+    public Boolean getNotify() {
+        return Notify;
     }
 
     public void setTag(String tag) {

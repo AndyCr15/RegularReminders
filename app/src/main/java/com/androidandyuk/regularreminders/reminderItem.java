@@ -18,21 +18,24 @@ public class reminderItem implements Comparable<reminderItem> {
     String name;
     String tag;
     int frequency;
+    Boolean notify;
     ArrayList<String> completed = new ArrayList<>();
 
     public reminderItem(String name, String tag, int frequency) {
         this.name = name;
         this.tag = tag;
         this.frequency = frequency;
+        this.notify = true;
         String today = sdf.format(new Date());
         Log.i("reminderItem", "Creating new item " + name);
         this.completed.add(today);
     }
 
-    public reminderItem(String name, String tag, int frequency, String status) {
+    public reminderItem(String name, String tag, int frequency, Boolean notify, String status) {
         this.name = name;
         this.tag = tag;
         this.frequency = frequency;
+        this.notify = notify;
         this.completed = new ArrayList<>();
     }
 

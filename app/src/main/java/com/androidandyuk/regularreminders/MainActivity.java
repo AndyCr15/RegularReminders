@@ -10,6 +10,7 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -55,9 +56,7 @@ import com.google.firebase.database.ValueEventListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.channels.FileChannel;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -67,6 +66,7 @@ import java.util.Date;
 import java.util.Map;
 
 import static com.androidandyuk.regularreminders.reminderItem.daysDifference;
+import static java.lang.Integer.parseInt;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -103,6 +103,8 @@ public class MainActivity extends AppCompatActivity {
 
     // the time the reminders will notify
     public static int reminderHour = 10;
+    public static int remindersOverdue;
+    public static String nextNotification;
 
     EditText reminderName;
     EditText reminderTag;
@@ -260,22 +262,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void saveSharedPreferences(String name, int mode, File file) {
-        SharedPreferences prefs = getSharedPreferences(name, mode);
-        try {
-            FileWriter fw = new FileWriter(file);
-            PrintWriter pw = new PrintWriter(fw);
-            Map<String, ?> prefsMap = prefs.getAll();
-            for (Map.Entry<String, ?> entry : prefsMap.entrySet()) {
-                pw.println(entry.getKey() + ": " + entry.getValue().toString());
-            }
-            pw.close();
-            fw.close();
-        } catch (Exception e) {
-            Log.wtf(getClass().getName(), e.toString());
-        }
-    }
-
     public void showAddReminder(View view) {
         final View addReminder = findViewById(R.id.addReminder);
         addReminder.setVisibility(View.VISIBLE);
@@ -322,7 +308,7 @@ public class MainActivity extends AppCompatActivity {
                     // Perform action on key press
                     String name = reminderName.getText().toString();
                     String tag = reminderTag.getText().toString();
-                    int freq = Integer.parseInt(reminderFrequency.getText().toString());
+                    int freq = parseInt(reminderFrequency.getText().toString());
                     if (!name.equals("") && freq > 0) {
                         addReminder.setVisibility(View.INVISIBLE);
                         reminders.add(new reminderItem(name, tag, freq));
@@ -349,36 +335,62 @@ public class MainActivity extends AppCompatActivity {
     public void setNotifications() {
         Log.i("setNotifications", "Starting");
         if (reminders.size() >= 0) {
-            Calendar calendar = Calendar.getInstance();
-
-            Date nextDue = reminderItem.nextDue(reminders.get(0));
-            int dif = daysDifference(new Date(), nextDue);
-            if (dif < 0) {
-                // if it's overdue, set to alarm today
-                dif = 0;
-                Log.i("Dif_set_to", " " + dif);
+            // there are reminders, now find the last one to set the notification
+            int lastNotify = -1;
+            for (int i = reminders.size() - 1; i >= 0; i--) {
+                // check if this reminders is set to notify
+                if (reminders.get(i).notify) {
+                    lastNotify = i;
+                }
             }
 
-            Log.i("Hour_of_Day", "" + calendar.get(Calendar.HOUR_OF_DAY));
-            if (dif == 0 && (calendar.get(Calendar.HOUR_OF_DAY) >= reminderHour)) {
-                // it's due today, but it's passed alarm time
-                dif = 1;
-                Log.i("Dif_set_to", " " + dif);
-            }
+            // only set a notification if there is one that needs notifying of
+            if (lastNotify >= 0) {
+                Log.i("setNotification", "Using " + reminders.get(lastNotify));
+                nextNotification = reminders.get(lastNotify).name;
 
-            calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
-            calendar.add(Calendar.DAY_OF_YEAR, dif);
+                Calendar calendar = Calendar.getInstance();
+//                int systemHour = calendar.get(Calendar.HOUR_OF_DAY);
+//                Calendar GMTcal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+//                int GMThour = GMTcal.get(Calendar.HOUR_OF_DAY);
+//                int systemTimeDif = (systemHour - GMThour);
+//                int adjustedReminderHour = reminderHour - systemTimeDif;
+
+
+                Date nextDue = reminderItem.nextDue(reminders.get(lastNotify));
+                int dif = daysDifference(new Date(), nextDue);
+                if (dif < 0) {
+                    // if it's overdue, set to alarm today
+                    dif = 0;
+                    Log.i("Dif_set_to", " " + dif);
+                }
+
+                if (dif == 0 && ((calendar.get(Calendar.HOUR_OF_DAY)) >= reminderHour)) {
+                    // it's due today, but it's passed alarm time
+                    dif = 1;
+                    Log.i("Dif_set_to", " " + dif);
+                }
+
+                calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.add(Calendar.DAY_OF_YEAR, dif);
+                Log.i("CalendarForAlarm", "" + calendar);
+                Log.i("Now", "" + Calendar.getInstance());
+
 
 //            calendar.add(Calendar.SECOND, 10);
 
-            Log.i("DaysUntilNextReminder", "" + dif);
+                Log.i("Alarm Millis", "" + calendar.getTimeInMillis());
+                Log.i("DaysUntilNextReminder", "" + dif);
 
-            Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
+                Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
 
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+            }
         }
     }
 
@@ -441,6 +453,9 @@ public class MainActivity extends AppCompatActivity {
 
             TextView reminder = (TextView) myView.findViewById(R.id.reminder);
             reminder.setText(s.name);
+            if (s.notify) {
+                reminder.setTypeface(null, Typeface.BOLD);
+            }
 
             TextView due = (TextView) myView.findViewById(R.id.due);
             Date nextDue = reminderItem.nextDue(s);
@@ -529,6 +544,7 @@ public class MainActivity extends AppCompatActivity {
                 myRef.child(user.getUid()).child("Item" + i).child("Name").setValue(reminders.get(i).name);
                 myRef.child(user.getUid()).child("Item" + i).child("Tag").setValue(reminders.get(i).tag);
                 myRef.child(user.getUid()).child("Item" + i).child("Freq").setValue(Integer.toString(reminders.get(i).frequency));
+                myRef.child(user.getUid()).child("Item" + i).child("Notify").setValue(Boolean.toString(reminders.get(i).notify));
                 try {
                     myRef.child(user.getUid()).child("Item" + i).child("Completed").setValue(ObjectSerializer.serialize(reminders.get(i).completed));
                 } catch (IOException e) {
@@ -539,12 +555,32 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public static void saveReminderToGoogle() {
+        Log.i("saveReminderToGoogle", "Starting");
+        if (user != null) {
+            Log.i("saveReminderToGoogle", "user is not null");
+            database = FirebaseDatabase.getInstance();
+            DatabaseReference myRef = database.getReference();
+
+            // clear anything previously saved for this reminder (not completed, that's done separately)
+            myRef.child(user.getUid()).child("Item" + activeReminderPosition).removeValue();
+
+            // save back the reminder
+            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Name").setValue(reminders.get(activeReminderPosition).name);
+            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Tag").setValue(reminders.get(activeReminderPosition).tag);
+            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Freq").setValue(Integer.toString(reminders.get(activeReminderPosition).frequency));
+            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Notify").setValue(Boolean.toString(reminders.get(activeReminderPosition).notify));
+        }
+    }
+
+
     public static void saveCompletedToGoogle() {
         Log.i("saveCompletedToGoogle", "Active Reminder " + activeReminderPosition);
         if (user != null) {
             Log.i("saveCompletedToGoogle", "user is not null");
             database = FirebaseDatabase.getInstance();
             DatabaseReference myRef = database.getReference();
+
             if (activeReminderPosition > -1) {
                 Log.i("saveCompletedToGoogle", "activeReminderPosition is " + activeReminderPosition);
                 // clear anything previously saved for this item completed
@@ -583,7 +619,8 @@ public class MainActivity extends AppCompatActivity {
 
                         String name = map.get("Name");
                         String tag = map.get("Tag");
-                        int freq = Integer.parseInt(map.get("Freq"));
+                        int freq = parseInt(map.get("Freq"));
+                        Boolean notify = Boolean.parseBoolean(map.get("Notify"));
                         String completed = map.get("Completed");
 
                         ArrayList<String> completedArray = new ArrayList<>();
@@ -593,7 +630,7 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-                        reminderItem newReminder = new reminderItem(name, tag, freq, "Loading");
+                        reminderItem newReminder = new reminderItem(name, tag, freq, notify, "Loading");
 
                         for (String thisCompleted : completedArray) {
                             newReminder.completed.add(thisCompleted);
@@ -620,12 +657,13 @@ public class MainActivity extends AppCompatActivity {
         Log.i("saveReminders", "reminders.size() " + reminders.size());
         try {
 
-            remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (name VARCHAR, tag VARCHAR, freq INT(4), completed VARCHAR)");
+            remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (name VARCHAR, tag VARCHAR, freq INT(4), notify INT(1), completed VARCHAR)");
             remindersDB.delete("reminders", null, null);
 
             for (reminderItem thisReminder : reminders) {
 
-                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
+                int notifyInt = (thisReminder.notify) ? 1 : 0;
+                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
 
             }
 
@@ -649,6 +687,7 @@ public class MainActivity extends AppCompatActivity {
             int nameIndex = c.getColumnIndex("name");
             int tagIndex = c.getColumnIndex("tag");
             int freqIndex = c.getColumnIndex("freq");
+            int notifyIndex = c.getColumnIndex("notify");
             int completedIndex = c.getColumnIndex("completed");
 
             c.moveToFirst();
@@ -659,7 +698,9 @@ public class MainActivity extends AppCompatActivity {
 
                 completed = (ArrayList<String>) ObjectSerializer.deserialize(c.getString(completedIndex));
 
-                reminderItem newReminder = new reminderItem(c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), "Loading");
+                Boolean thisNotify = (c.getInt(notifyIndex) == 1) ? true : false;
+
+                reminderItem newReminder = new reminderItem(c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), thisNotify, "Loading");
 
                 for (String thisCompleted : completed) {
                     newReminder.completed.add(thisCompleted);
