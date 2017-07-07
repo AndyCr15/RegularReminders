@@ -5,9 +5,13 @@
     <color name="colorAccent">#1a237e</color>
     <color name="colorBackground">#d7ccc8</color>
     <color name="colorGreen">#558b2f</color>
-    <color name="colorAmber">#bf360c</color>
     <color name="colorLightGreen">#8bc34a</color>
-    <color name="colorRed">#b71c1c</color>
+    <color name="colorGreenYellow">#c0ca33</color>
+    <color name="colorYellow">#fdd835</color>
+    <color name="colorAmber">#f57f17</color>
+    <color name="colorAmberRed">#ce4514</color>
+    <color name="colorRed">#d50000</color>
+    <color name="colorDarkRed">#7e0404</color>
     <color name="colorGrey">#757575</color>
 
 </resources>

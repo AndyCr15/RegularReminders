@@ -101,7 +101,8 @@ public class MainActivity extends AppCompatActivity {
 
     public static SQLiteDatabase remindersDB;
 
-    public static int reminderHour = 20;
+    // the time the reminders will notify
+    public static int reminderHour = 10;
 
     EditText reminderName;
     EditText reminderTag;
@@ -229,9 +230,11 @@ public class MainActivity extends AppCompatActivity {
                     Log.i("SignedIn", "onAuthStateChanged");
                     loadFromGoogle();
                     myAdapter.notifyDataSetChanged();
+                    invalidateOptionsMenu();
                 } else {
                     // User is signed out
                     Log.d("Login", "onAuthStateChanged:signed_out");
+                    invalidateOptionsMenu();
                 }
             }
         };
@@ -353,11 +356,14 @@ public class MainActivity extends AppCompatActivity {
             if (dif < 0) {
                 // if it's overdue, set to alarm today
                 dif = 0;
+                Log.i("Dif_set_to", " " + dif);
             }
 
+            Log.i("Hour_of_Day", "" + calendar.get(Calendar.HOUR_OF_DAY));
             if (dif == 0 && (calendar.get(Calendar.HOUR_OF_DAY) >= reminderHour)) {
                 // it's due today, but it's passed alarm time
                 dif = 1;
+                Log.i("Dif_set_to", " " + dif);
             }
 
             calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
@@ -438,26 +444,70 @@ public class MainActivity extends AppCompatActivity {
 
             TextView due = (TextView) myView.findViewById(R.id.due);
             Date nextDue = reminderItem.nextDue(s);
+
+            int dif = daysDifference(new Date(), nextDue);
             // shows as a date or number of days time
+
             if (showDate) {
                 due.setText("Due on " + sdf.format(nextDue));
             } else {
-                int dif = daysDifference(new Date(), nextDue);
+
+                // first set the text
                 if (dif > 0) {
                     due.setText("Due in " + dif + " days");
-                    due.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
-                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
-                } else if (dif < 0) {
+                }
+                if (dif < 0) {
                     due.setText("" + Math.abs(dif) + " days late");
                     due.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
-                } else {
+                }
+                if (dif == 0) {
                     due.setText("Due today");
                     due.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
                 }
 
             }
+
+            // now set the colour, start at worse and work forwards
+            due.setTextColor(ContextCompat.getColor(context, R.color.colorDarkRed));
+            colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorDarkRed));
+
+            if (dif > -10) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
+            }
+
+            if (dif > -6) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorAmberRed));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmberRed));
+            }
+
+            if (dif > -4) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
+            }
+
+            if (dif > -2) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorYellow));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorYellow));
+            }
+
+            if (dif > 0) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
+            }
+
+            if (dif > 2) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorLightGreen));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorLightGreen));
+            }
+
+            if (dif > 4) {
+                due.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
+            }
+
 
             return myView;
         }
@@ -707,7 +757,7 @@ public class MainActivity extends AppCompatActivity {
         Auth.GoogleSignInApi.signOut(mGoogleApiClient);
         Log.i("Signed Out", "Complete");
         Toast.makeText(MainActivity.this, "Signed Out", Toast.LENGTH_SHORT).show();
-
+        invalidateOptionsMenu();
     }
 
     //   GOOGLE SIGN IN END

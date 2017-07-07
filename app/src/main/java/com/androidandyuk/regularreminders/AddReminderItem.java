@@ -195,9 +195,9 @@ public class AddReminderItem extends AppCompatActivity {
 
         saveReminders();
         saveCompletedToGoogle();
-        MainActivity.myAdapter.notifyDataSetChanged();
-        Collections.sort(reminders);
-        resetAddItem();
+//        MainActivity.myAdapter.notifyDataSetChanged();
+//        Collections.sort(reminders);
+//        resetAddItem();
         finish();
     }
 
@@ -263,27 +263,58 @@ public class AddReminderItem extends AppCompatActivity {
                 }
 
                 if (dif < -2) {
-                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
-                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
                     schedule = Math.abs(dif) + " days late";
                 }
 
                 if (dif > 0) {
-                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
-                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
                     schedule = Math.abs(dif) + " days early";
                 }
 
                 if (dif < 0 && dif > -3) {
-                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
-                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
                     schedule = Math.abs(dif) + " days late";
                 }
 
                 if (dif == 0) {
+                    schedule = "On schedule";
+                }
+
+                // now set the colour, start at worse and work forwards
+                onTime.setTextColor(ContextCompat.getColor(context, R.color.colorDarkRed));
+                colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorDarkRed));
+
+                if (dif > -10) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
+                }
+
+                if (dif > -6) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAmberRed));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmberRed));
+                }
+
+                if (dif > -4) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
+                }
+
+                if (dif > -2) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorYellow));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorYellow));
+                }
+
+                if (dif > 0) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
+                }
+
+                if (dif > 2) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorLightGreen));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorLightGreen));
-                    schedule = "On schedule";
+                }
+
+                if (dif > 4) {
+                    onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
+                    colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
                 }
 
 
@@ -319,12 +350,12 @@ public class AddReminderItem extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             updateReminder();
-            MainActivity.myAdapter.notifyDataSetChanged();
+//            MainActivity.myAdapter.notifyDataSetChanged();
             saveReminders();
             finish();
             return true;
         }
-        MainActivity.myAdapter.notifyDataSetChanged();
+//        MainActivity.myAdapter.notifyDataSetChanged();
         return super.onKeyDown(keyCode, event);
     }
 }
