@@ -103,4 +103,10 @@
         app:elevation="12dp"
         app:fabSize="normal"
         app:srcCompat="@android:drawable/ic_input_add" />
+
+    <TimePicker
+        android:id="@+id/timePicker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
 </RelativeLayout>

@@ -68,6 +68,7 @@ public class reminderItem implements Comparable<reminderItem> {
         } catch (Exception exception) {
             Log.i("DIDN'T WORK", "exception " + exception);
         }
+        // returns ??? if 1 is before 2
         return dayDifference;
     }
 

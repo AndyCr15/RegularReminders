@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -38,6 +40,7 @@ import static com.androidandyuk.regularreminders.MainActivity.saveCompletedToGoo
 import static com.androidandyuk.regularreminders.MainActivity.saveReminderToGoogle;
 import static com.androidandyuk.regularreminders.MainActivity.saveReminders;
 import static com.androidandyuk.regularreminders.MainActivity.sdf;
+import static com.androidandyuk.regularreminders.MainActivity.staticTodayDate;
 import static com.androidandyuk.regularreminders.MainActivity.staticTodayString;
 
 public class AddReminderItem extends AppCompatActivity {
@@ -137,6 +140,11 @@ public class AddReminderItem extends AppCompatActivity {
             public void onDateSet(DatePicker datePicker, int year, int month, int day) {
                 Calendar date = Calendar.getInstance();
                 date.set(year, month, day);
+                //check it's not passed today, otherwise make it today
+                if(reminderItem.daysDifference(date.getTime(), staticTodayDate) < 0){
+                    date = Calendar.getInstance();
+                    Toast.makeText(AddReminderItem.this, "Can't add a future date. Adding today instead.", Toast.LENGTH_LONG).show();
+                }
                 String sdfDate = sdf.format(date.getTime());
                 activeReminder.completed.add(sdfDate);
                 Collections.sort(activeReminder.completed, new StringDateComparator());
@@ -165,6 +173,28 @@ public class AddReminderItem extends AppCompatActivity {
                     Log.i("SetNotify","" + reminders.get(activeReminderPosition).notify);
 
                 }
+            }
+        });
+
+        frequency.addTextChangedListener(new TextWatcher() {
+
+            public void afterTextChanged(Editable s) {
+                try {
+                    reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
+                } catch (NumberFormatException e) {
+                    e.printStackTrace();
+                }
+                Collections.sort(activeReminder.completed, new StringDateComparator());
+                myAdapter.notifyDataSetChanged();
+            }
+
+            public void beforeTextChanged(CharSequence s, int start,
+                                          int count, int after) {
+            }
+
+            public void onTextChanged(CharSequence s, int start,
+                                      int before, int count) {
+
             }
         });
     }
@@ -206,7 +236,6 @@ public class AddReminderItem extends AppCompatActivity {
                 logDateSetListener,
                 year, month, day);
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-//            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.LTGRAY));
         dialog.show();
         if (itemLongPressedPosition >= 0) {
             activeReminder.completed.remove(itemLongPressedPosition);
@@ -218,7 +247,11 @@ public class AddReminderItem extends AppCompatActivity {
         // we're editing, so just update the details
         reminders.get(activeReminderPosition).name = name.getText().toString();
         reminders.get(activeReminderPosition).tag = tag.getText().toString();
-        reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
+        try {
+            reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
         reminders.get(activeReminderPosition).notify = notifyToggle.isChecked();
 
         saveReminders();
@@ -308,41 +341,43 @@ public class AddReminderItem extends AppCompatActivity {
                     schedule = "On schedule";
                 }
 
+                Double thisSchedule = ((double) dif) / reminders.get(activeReminderPosition).frequency;
+
                 // now set the colour, start at worse and work forwards
                 onTime.setTextColor(ContextCompat.getColor(context, R.color.colorDarkRed));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorDarkRed));
 
-                if (dif > -10) {
+                if (thisSchedule > -2) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
                 }
 
-                if (dif > -6) {
+                if (thisSchedule > -1) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAmberRed));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmberRed));
                 }
 
-                if (dif > -4) {
+                if (thisSchedule > -0.5) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
                 }
 
-                if (dif > -2) {
+                if (thisSchedule > -0.2) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorYellow));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorYellow));
                 }
 
-                if (dif > 0) {
+                if (thisSchedule > 0) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
                 }
 
-                if (dif > 2) {
+                if (thisSchedule > 0.2) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorLightGreen));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorLightGreen));
                 }
 
-                if (dif > 4) {
+                if (thisSchedule > 0.6) {
                     onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
                     colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
                 }
@@ -380,12 +415,10 @@ public class AddReminderItem extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             updateReminder();
-//            MainActivity.myAdapter.notifyDataSetChanged();
             saveReminders();
             finish();
             return true;
         }
-//        MainActivity.myAdapter.notifyDataSetChanged();
         return super.onKeyDown(keyCode, event);
     }
 }

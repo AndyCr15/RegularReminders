@@ -1,7 +1,9 @@
 package com.androidandyuk.regularreminders;
 
 import android.app.AlarmManager;
+import android.app.Dialog;
 import android.app.PendingIntent;
+import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -31,6 +33,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.TimePicker;
 import android.widget.Toast;
 
 import com.google.android.gms.auth.api.Auth;
@@ -82,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int RC_SIGN_IN = 9001;
     private GoogleApiClient mGoogleApiClient;
+    public static Boolean overwrite = true;
 
     static MyReminderAdapter myAdapter;
     public static ArrayList<String> tags;
@@ -103,8 +107,11 @@ public class MainActivity extends AppCompatActivity {
 
     // the time the reminders will notify
     public static int reminderHour = 10;
+    public static int reminderMinute = 0;
     public static int remindersOverdue;
     public static String nextNotification;
+
+    static final int TIME_DIALOG_ID = 0;
 
     EditText reminderName;
     EditText reminderTag;
@@ -356,6 +363,9 @@ public class MainActivity extends AppCompatActivity {
 //                int systemTimeDif = (systemHour - GMThour);
 //                int adjustedReminderHour = reminderHour - systemTimeDif;
 
+                calendar.set(Calendar.HOUR, reminderHour);
+                calendar.set(Calendar.MINUTE, reminderMinute);
+                calendar.set(Calendar.SECOND, 0);
 
                 Date nextDue = reminderItem.nextDue(reminders.get(lastNotify));
                 int dif = daysDifference(new Date(), nextDue);
@@ -365,23 +375,17 @@ public class MainActivity extends AppCompatActivity {
                     Log.i("Dif_set_to", " " + dif);
                 }
 
-                if (dif == 0 && ((calendar.get(Calendar.HOUR_OF_DAY)) >= reminderHour)) {
+                if (dif == 0 && (calendar.before(Calendar.getInstance()))) {
                     // it's due today, but it's passed alarm time
                     dif = 1;
                     Log.i("Dif_set_to", " " + dif);
                 }
 
-                calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
-                calendar.set(Calendar.MINUTE, 0);
-                calendar.set(Calendar.SECOND, 0);
-                calendar.add(Calendar.DAY_OF_YEAR, dif);
-                Log.i("CalendarForAlarm", "" + calendar);
-                Log.i("Now", "" + Calendar.getInstance());
 
+                calendar.add(Calendar.DAY_OF_YEAR, dif);
 
 //            calendar.add(Calendar.SECOND, 10);
 
-                Log.i("Alarm Millis", "" + calendar.getTimeInMillis());
                 Log.i("DaysUntilNextReminder", "" + dif);
 
                 Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
@@ -390,6 +394,9 @@ public class MainActivity extends AppCompatActivity {
 
                 AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+
+                Log.i("AlarmSetFor ", "" + calendar.getTimeInMillis());
+                Log.i("TimeNow", "" + Calendar.getInstance().getTimeInMillis());
             }
         }
     }
@@ -484,45 +491,46 @@ public class MainActivity extends AppCompatActivity {
 
             }
 
+            Double schedule = ((double) dif) / s.frequency;
+
             // now set the colour, start at worse and work forwards
             due.setTextColor(ContextCompat.getColor(context, R.color.colorDarkRed));
             colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorDarkRed));
 
-            if (dif > -10) {
+            if (schedule > -2) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorRed));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorRed));
             }
 
-            if (dif > -6) {
+            if (schedule > -1) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorAmberRed));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmberRed));
             }
 
-            if (dif > -4) {
+            if (schedule > -0.5) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorAmber));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorAmber));
             }
 
-            if (dif > -2) {
+            if (schedule > -0.2) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorYellow));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorYellow));
             }
 
-            if (dif > 0) {
+            if (schedule > 0) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreenYellow));
             }
 
-            if (dif > 2) {
+            if (schedule > 0.2) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorLightGreen));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorLightGreen));
             }
 
-            if (dif > 4) {
+            if (schedule > 0.6) {
                 due.setTextColor(ContextCompat.getColor(context, R.color.colorGreen));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
             }
-
 
             return myView;
         }
@@ -598,9 +606,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public static void loadFromGoogle() {
-        if (user != null) {
+        Log.i("loadFromGoogle", "Starting");
+        if (user != null && overwrite) {
 
-            Log.i("loadFromGoogle", "Starting");
+            Log.i("loadFromGoogle", "Loading");
 
             database = FirebaseDatabase.getInstance();
             DatabaseReference myRef = database.getReference().child(user.getUid());
@@ -649,12 +658,21 @@ public class MainActivity extends AppCompatActivity {
 
                 }
             });
+        } else if (!overwrite){
+            // skip the initial load of overwrite is false, but then set back to true for future loads
+            overwrite = true;
+            Log.i("loadFromGoogle", "Skipped");
+            saveReminders();
         }
     }
 
 
     public static void saveReminders() {
         Log.i("saveReminders", "reminders.size() " + reminders.size());
+
+        ed.putInt("reminderHour", reminderHour).apply();
+        ed.putInt("reminderMinute", reminderMinute).apply();
+
         try {
 
             remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (name VARCHAR, tag VARCHAR, freq INT(4), notify INT(1), completed VARCHAR)");
@@ -663,7 +681,7 @@ public class MainActivity extends AppCompatActivity {
             for (reminderItem thisReminder : reminders) {
 
                 int notifyInt = (thisReminder.notify) ? 1 : 0;
-                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
+                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, notify, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
 
             }
 
@@ -679,6 +697,9 @@ public class MainActivity extends AppCompatActivity {
 
         reminders.clear();
         Log.i("LoadingDB", "reminder.size() " + reminders.size());
+
+        reminderHour = sharedPreferences.getInt("reminderHour", 10);
+        reminderMinute = sharedPreferences.getInt("reminderMinute", 0);
 
         try {
 
@@ -742,12 +763,68 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void setNotificationTime() {
+        TimePicker timePicker = (TimePicker) findViewById(R.id.timePicker);
+        // set current time into timepicker
+        timePicker.setCurrentHour(reminderHour);
+        timePicker.setCurrentMinute(reminderMinute);
+        createdDialog(0).show();
+    }
+
+    protected Dialog createdDialog(int id) {
+        switch (id) {
+            case TIME_DIALOG_ID:
+                return new TimePickerDialog(this, timePickerListener, reminderHour, reminderMinute, false);
+        }
+        return null;
+    }
+
+    private TimePickerDialog.OnTimeSetListener timePickerListener =
+            new TimePickerDialog.OnTimeSetListener() {
+                public void onTimeSet(TimePicker view, int selectedHour,
+                                      int selectedMinute) {
+                    reminderHour = selectedHour;
+                    reminderMinute = selectedMinute;
+                    TimePicker timePicker = (TimePicker) findViewById(R.id.timePicker);
+                    timePicker.setVisibility(View.INVISIBLE);
+                    Log.i("New Notification time ", reminderHour + " " + reminderMinute);
+                }
+            };
+
     //   GOOGLE SIGN IN
 
     private void signIn() {
         Log.i("signIn", "Starting");
-        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
-        startActivityForResult(signInIntent, RC_SIGN_IN);
+
+        overwrite = false;
+
+        final Context context = App.getContext();
+
+        new AlertDialog.Builder(MainActivity.this)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setTitle("Over write current info with Google data?")
+                .setMessage("Do you want your Google data to overwrite current, or keep your current data, which will then overwrite Google?")
+                .setPositiveButton("Overwrite", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Toast.makeText(context, "Loading Google Data", Toast.LENGTH_SHORT).show();
+                        overwrite = true;
+                        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+                        startActivityForResult(signInIntent, RC_SIGN_IN);
+                    }
+                })
+                .setNegativeButton("Keep", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        Toast.makeText(context, "Keeping Current Data", Toast.LENGTH_SHORT).show();
+                        overwrite = false;
+                        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
+                        startActivityForResult(signInIntent, RC_SIGN_IN);
+                    }
+                })
+                .show();
+
+
     }
 
     @Override
@@ -815,8 +892,16 @@ public class MainActivity extends AppCompatActivity {
             signInOut = "Sign Out";
         }
 
+        String notifyText = "Reminder Time " + reminderHour;
+                if(reminderMinute<10){
+                    notifyText += ":0" + reminderMinute;
+                } else {
+                    notifyText += ":" + reminderMinute;
+                }
+
         menu.add(0, 0, 0, signInOut).setShortcut('3', 'c');
-        menu.add(0, 1, 0, "Export DB to SD").setShortcut('3', 'c');
+        menu.add(0, 1, 0, notifyText).setShortcut('3', 'c');
+        menu.add(0, 2, 0, "Export DB to SD").setShortcut('3', 'c');
 
         return true;
     }
@@ -837,13 +922,16 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             case 1:
                 Log.i("Option", "1");
+                setNotificationTime();
+                return true;
+            case 2:
+                Log.i("Option", "2");
                 exportDB();
                 return true;
         }
 
         return super.onOptionsItemSelected(item);
     }
-
 
     @Override
     public void onBackPressed() {
