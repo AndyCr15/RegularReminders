@@ -99,7 +99,7 @@ public class AddReminderItem extends AppCompatActivity {
                                         myAdapter.notifyDataSetChanged();
                                         Toast.makeText(context, "Deleted!", Toast.LENGTH_SHORT).show();
                                         saveReminders();
-                                        saveCompletedToGoogle();
+                                        saveCompletedToGoogle(activeReminder);
                                     }
                                 })
                                 .setNegativeButton("No", null)
@@ -149,7 +149,7 @@ public class AddReminderItem extends AppCompatActivity {
                 activeReminder.completed.add(sdfDate);
                 Collections.sort(activeReminder.completed, new StringDateComparator());
                 saveReminders();
-                saveCompletedToGoogle();
+                saveCompletedToGoogle(activeReminder);
                 myAdapter.notifyDataSetChanged();
             }
         };
@@ -255,8 +255,8 @@ public class AddReminderItem extends AppCompatActivity {
         reminders.get(activeReminderPosition).notify = notifyToggle.isChecked();
 
         saveReminders();
-        saveReminderToGoogle();
-        saveCompletedToGoogle();
+        saveReminderToGoogle(activeReminder);
+        saveCompletedToGoogle(activeReminder);
 
 //        MainActivity.myAdapter.notifyDataSetChanged();
 //        Collections.sort(reminders);
@@ -312,7 +312,7 @@ public class AddReminderItem extends AppCompatActivity {
             if (position == reminders.get(activeReminderPosition).completed.size() - 1) {
                 //this is the last item in the list
                 schedule = "Created";
-                onTime.setTextColor(ContextCompat.getColor(context, R.color.colorGrey));
+                onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAccent));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGrey));
             }
 

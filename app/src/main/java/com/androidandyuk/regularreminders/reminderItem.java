@@ -15,6 +15,7 @@ import static com.androidandyuk.regularreminders.MainActivity.sdf;
  */
 
 public class reminderItem implements Comparable<reminderItem> {
+    String reminderID;
     String name;
     String tag;
     int frequency;
@@ -22,6 +23,8 @@ public class reminderItem implements Comparable<reminderItem> {
     ArrayList<String> completed = new ArrayList<>();
 
     public reminderItem(String name, String tag, int frequency) {
+        this.reminderID = Long.toString(System.currentTimeMillis());
+        Log.i("reminderID created ", this.reminderID);
         this.name = name;
         this.tag = tag;
         this.frequency = frequency;
@@ -31,7 +34,8 @@ public class reminderItem implements Comparable<reminderItem> {
         this.completed.add(today);
     }
 
-    public reminderItem(String name, String tag, int frequency, Boolean notify, String status) {
+    public reminderItem(String ID, String name, String tag, int frequency, Boolean notify, String status) {
+        this.reminderID = ID;
         this.name = name;
         this.tag = tag;
         this.frequency = frequency;

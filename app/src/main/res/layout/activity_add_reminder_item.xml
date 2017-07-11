@@ -45,6 +45,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Reminder Name"
+                    android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
                 <EditText
@@ -57,7 +58,9 @@
                     android:hint="Reminder Name"
                     android:inputType="textCapSentences"
                     android:padding="8dp"
-                    android:textAlignment="center" />
+                    android:text="Name"
+                    android:textAlignment="center"
+                    android:textColor="@android:color/white" />
             </LinearLayout>
 
             <LinearLayout
@@ -75,6 +78,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="0"
                     android:text="Tag"
+                    android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
                 <EditText
@@ -87,7 +91,8 @@
                     android:hint="Tag"
                     android:inputType="textCapWords"
                     android:padding="8dp"
-                    android:textAlignment="center" />
+                    android:textAlignment="center"
+                    android:textColor="@android:color/white" />
             </LinearLayout>
 
         </LinearLayout>
@@ -113,6 +118,7 @@
                     android:layout_weight="1"
                     android:text="Count"
                     android:textAlignment="center"
+                    android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
                 <TextView
@@ -122,6 +128,7 @@
                     android:layout_weight="1"
                     android:hint="count"
                     android:textAlignment="center"
+                    android:textColor="@android:color/white"
                     android:textSize="18sp" />
 
             </LinearLayout>
@@ -142,6 +149,7 @@
                     android:layout_weight="1"
                     android:text="Notifications"
                     android:textAlignment="center"
+                    android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
                 <ToggleButton
@@ -170,6 +178,7 @@
                     android:layout_weight="1"
                     android:text="Frequency"
                     android:textAlignment="center"
+                    android:textColor="@android:color/white"
                     android:textSize="10sp" />
 
                 <EditText
@@ -183,6 +192,7 @@
                     android:inputType="number"
                     android:padding="8dp"
                     android:textAlignment="center"
+                    android:textColor="@android:color/white"
                     android:textSize="18sp" />
             </LinearLayout>
 

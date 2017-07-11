@@ -61,6 +61,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -163,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
                 activeReminderPosition = position;
                 activeReminder = reminders.get(position);
                 itemLongPressedPosition = 0;
-                saveToGoogle();
+//                saveToGoogle();
                 Intent intent = new Intent(getApplicationContext(), AddReminderItem.class);
                 startActivity(intent);
 
@@ -250,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
 
+        mAuth.addAuthStateListener(mAuthListener);
     }
 
     @Override
@@ -284,29 +286,6 @@ public class MainActivity extends AppCompatActivity {
         reminderName.setFocusableInTouchMode(true);
         reminderName.requestFocus();
 
-//        reminderName.setOnKeyListener(new View.OnKeyListener() {
-//            public boolean onKey(View v, int keyCode, KeyEvent event) {
-//                // If the event is a key-down event on the "enter" button
-//                if ((event.getAction() == KeyEvent.ACTION_DOWN) &&
-//                        (keyCode == KeyEvent.KEYCODE_ENTER)) {
-//                    // Perform action on key press
-//                    String name = reminderName.getText().toString();
-//                    String tag = reminderTag.getText().toString();
-//                    int freq = Integer.parseInt(reminderFrequency.getText().toString());
-//                    if(!name.equals("") && freq > 0) {
-//                        addReminder.setVisibility(View.INVISIBLE);
-//                        reminders.add(new reminderItem(name, tag, freq));
-//                        Collections.sort(reminders);
-//                        myAdapter.notifyDataSetChanged();
-//                        return true;
-//                    } else {
-//                        Toast.makeText(MainActivity.this, "Please complete all details", Toast.LENGTH_LONG).show();
-//                    }
-//                }
-//                return false;
-//            }
-//        });
-
         reminderFrequency.setOnKeyListener(new View.OnKeyListener() {
             public boolean onKey(View v, int keyCode, KeyEvent event) {
                 // If the event is a key-down event on the "enter" button
@@ -318,12 +297,14 @@ public class MainActivity extends AppCompatActivity {
                     int freq = parseInt(reminderFrequency.getText().toString());
                     if (!name.equals("") && freq > 0) {
                         addReminder.setVisibility(View.INVISIBLE);
-                        reminders.add(new reminderItem(name, tag, freq));
+                        reminderItem newReminder = new reminderItem(name, tag, freq);
+                        reminders.add(newReminder);
+                        saveReminderToGoogle(newReminder);
+                        saveCompletedToGoogle(newReminder);
 
                         reminderName.setText("");
                         reminderTag.setText("");
                         reminderFrequency.setText("");
-
 
                         Collections.sort(reminders);
                         myAdapter.notifyDataSetChanged();
@@ -349,6 +330,7 @@ public class MainActivity extends AppCompatActivity {
                 if (reminders.get(i).notify) {
                     lastNotify = i;
                 }
+
             }
 
             // only set a notification if there is one that needs notifying of
@@ -363,7 +345,15 @@ public class MainActivity extends AppCompatActivity {
 //                int systemTimeDif = (systemHour - GMThour);
 //                int adjustedReminderHour = reminderHour - systemTimeDif;
 
-                calendar.set(Calendar.HOUR, reminderHour);
+
+                int timeZone1 = calendar.get(Calendar.HOUR_OF_DAY);
+                if (timeZone1 > 12) {
+                    timeZone1 -= 12;
+                }
+                int timeZone2 = calendar.get(Calendar.HOUR) - timeZone1;
+
+                calendar.set(Calendar.HOUR_OF_DAY, (reminderHour + timeZone2));
+                Log.i("reminderHour + tZ", "" + (reminderHour + timeZone2));
                 calendar.set(Calendar.MINUTE, reminderMinute);
                 calendar.set(Calendar.SECOND, 0);
 
@@ -381,14 +371,37 @@ public class MainActivity extends AppCompatActivity {
                     Log.i("Dif_set_to", " " + dif);
                 }
 
-
                 calendar.add(Calendar.DAY_OF_YEAR, dif);
 
 //            calendar.add(Calendar.SECOND, 10);
 
                 Log.i("DaysUntilNextReminder", "" + dif);
 
+                // all this to add the number of days to the date, to see how many WILL be overdue when the notification hits
+                Date alarmDate = new Date();
+                String thisAlarmDate = sdf.format(alarmDate);
+                Calendar c = Calendar.getInstance();
+                try {
+                    c.setTime(sdf.parse(thisAlarmDate));
+                    c.add(Calendar.DATE, dif);  // number of days to add
+                    thisAlarmDate = sdf.format(c.getTime());
+                    alarmDate = sdf.parse(thisAlarmDate);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+                remindersOverdue = remindersOverdue(alarmDate);
+
+                String notificationText = "Don't forget to " + nextNotification;
+                if (remindersOverdue == 2) {
+                    notificationText += " and one other reminder are due";
+                }
+                if (remindersOverdue > 2) {
+                    notificationText += " and " + (remindersOverdue - 1) + " other reminders are due";
+                }
+
+
                 Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
+                intent.putExtra("Message", notificationText);
 
                 PendingIntent pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
@@ -399,6 +412,19 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("TimeNow", "" + Calendar.getInstance().getTimeInMillis());
             }
         }
+    }
+
+    public int remindersOverdue(Date fromDate) {
+        remindersOverdue = 0;
+        for (reminderItem thisReminder : reminders) {
+            Date nextDue = reminderItem.nextDue(thisReminder);
+            int dif = daysDifference(fromDate, nextDue);
+            if (dif < 1) {
+                remindersOverdue++;
+                Log.i("remindersOverdue", thisReminder.name + " is due");
+            }
+        }
+        return remindersOverdue;
     }
 
     public void loadPressed(View view) {
@@ -537,33 +563,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public static void saveToGoogle() {
-        Log.i("saveToGoogle", "Starting");
-        if (user != null) {
-            Log.i("saveToGoogle", "user is not null");
-            database = FirebaseDatabase.getInstance();
-            DatabaseReference myRef = database.getReference();
 
-            // clear anything previously saved for this user
-            myRef.child(user.getUid()).removeValue();
-
-            // save back the reminders for this user
-            for (int i = 0; i < reminders.size(); i++) {
-                myRef.child(user.getUid()).child("Item" + i).child("Name").setValue(reminders.get(i).name);
-                myRef.child(user.getUid()).child("Item" + i).child("Tag").setValue(reminders.get(i).tag);
-                myRef.child(user.getUid()).child("Item" + i).child("Freq").setValue(Integer.toString(reminders.get(i).frequency));
-                myRef.child(user.getUid()).child("Item" + i).child("Notify").setValue(Boolean.toString(reminders.get(i).notify));
-                try {
-                    myRef.child(user.getUid()).child("Item" + i).child("Completed").setValue(ObjectSerializer.serialize(reminders.get(i).completed));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    Log.d("saveToGoogle", "Error saving completed " + i);
-                }
-            }
-        }
-    }
-
-    public static void saveReminderToGoogle() {
+    public static void saveReminderToGoogle(reminderItem saveReminder) {
         Log.i("saveReminderToGoogle", "Starting");
         if (user != null) {
             Log.i("saveReminderToGoogle", "user is not null");
@@ -571,35 +572,57 @@ public class MainActivity extends AppCompatActivity {
             DatabaseReference myRef = database.getReference();
 
             // clear anything previously saved for this reminder (not completed, that's done separately)
-            myRef.child(user.getUid()).child("Item" + activeReminderPosition).removeValue();
+            myRef.child(user.getUid()).child(saveReminder.reminderID).removeValue();
 
             // save back the reminder
-            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Name").setValue(reminders.get(activeReminderPosition).name);
-            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Tag").setValue(reminders.get(activeReminderPosition).tag);
-            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Freq").setValue(Integer.toString(reminders.get(activeReminderPosition).frequency));
-            myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Notify").setValue(Boolean.toString(reminders.get(activeReminderPosition).notify));
+            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Name").setValue(saveReminder.name);
+            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Tag").setValue(saveReminder.tag);
+            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Freq").setValue(Integer.toString(saveReminder.frequency));
+            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Notify").setValue(Boolean.toString(saveReminder.notify));
         }
     }
 
-
-    public static void saveCompletedToGoogle() {
-        Log.i("saveCompletedToGoogle", "Active Reminder " + activeReminderPosition);
+    public static void saveCompletedToGoogle(reminderItem saveReminder) {
         if (user != null) {
             Log.i("saveCompletedToGoogle", "user is not null");
             database = FirebaseDatabase.getInstance();
             DatabaseReference myRef = database.getReference();
 
-            if (activeReminderPosition > -1) {
-                Log.i("saveCompletedToGoogle", "activeReminderPosition is " + activeReminderPosition);
-                // clear anything previously saved for this item completed
-                myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Completed").removeValue();
+            Log.i("saveCompletedToGoogle", "" + saveReminder);
+            // clear anything previously saved for this item completed
+            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Completed").removeValue();
 
-                // save back the completed for this user
+            // save back the completed for this user
+            try {
+                myRef.child(user.getUid()).child(saveReminder.reminderID).child("Completed").setValue(ObjectSerializer.serialize(saveReminder.completed));
+            } catch (IOException e) {
+                e.printStackTrace();
+                Log.d("saveToGoogle", "Error saving completed");
+            }
+        }
+    }
+
+    public static void saveToGoogle() {
+        Log.i("saveToGoogle", "Starting");
+        if (user != null) {
+            database = FirebaseDatabase.getInstance();
+            DatabaseReference myRef = database.getReference();
+
+            // clear anything previously saved for this user
+            myRef.child(user.getUid()).removeValue();
+
+            // save back the reminders for this user
+            for (reminderItem thisReminder : reminders) {
+                Log.i("saveToGoogle", "" + thisReminder.reminderID);
+                myRef.child(user.getUid()).child(thisReminder.reminderID).child("Name").setValue(thisReminder.name);
+                myRef.child(user.getUid()).child(thisReminder.reminderID).child("Tag").setValue(thisReminder.tag);
+                myRef.child(user.getUid()).child(thisReminder.reminderID).child("Freq").setValue(Integer.toString(thisReminder.frequency));
+                myRef.child(user.getUid()).child(thisReminder.reminderID).child("Notify").setValue(Boolean.toString(thisReminder.notify));
                 try {
-                    myRef.child(user.getUid()).child("Item" + activeReminderPosition).child("Completed").setValue(ObjectSerializer.serialize(reminders.get(activeReminderPosition).completed));
+                    myRef.child(user.getUid()).child(thisReminder.reminderID).child("Completed").setValue(ObjectSerializer.serialize(thisReminder.completed));
                 } catch (IOException e) {
                     e.printStackTrace();
-                    Log.d("saveToGoogle", "Error saving completed");
+                    Log.d("saveToGoogle", "Error saving completed " + thisReminder.name);
                 }
             }
         }
@@ -612,7 +635,7 @@ public class MainActivity extends AppCompatActivity {
             Log.i("loadFromGoogle", "Loading");
 
             database = FirebaseDatabase.getInstance();
-            DatabaseReference myRef = database.getReference().child(user.getUid());
+            final DatabaseReference myRef = database.getReference().child(user.getUid());
 
             myRef.addListenerForSingleValueEvent(new ValueEventListener() {
                 @Override
@@ -622,6 +645,7 @@ public class MainActivity extends AppCompatActivity {
                     reminders.clear();
 
                     for (DataSnapshot ds : dataSnapshot.getChildren()) {
+                        Log.i("DataSnapshot", "" + ds);
                         GenericTypeIndicator<Map<String, String>> genericTypeIndicator = new GenericTypeIndicator<Map<String, String>>() {
                         };
                         Map<String, String> map = ds.getValue(genericTypeIndicator);
@@ -639,7 +663,8 @@ public class MainActivity extends AppCompatActivity {
                             e.printStackTrace();
                         }
 
-                        reminderItem newReminder = new reminderItem(name, tag, freq, notify, "Loading");
+                        Log.i("getKey", "" + ds.getKey());
+                        reminderItem newReminder = new reminderItem(ds.getKey(), name, tag, freq, notify, "Loading");
 
                         for (String thisCompleted : completedArray) {
                             newReminder.completed.add(thisCompleted);
@@ -658,14 +683,13 @@ public class MainActivity extends AppCompatActivity {
 
                 }
             });
-        } else if (!overwrite){
+        } else if (!overwrite) {
             // skip the initial load of overwrite is false, but then set back to true for future loads
             overwrite = true;
             Log.i("loadFromGoogle", "Skipped");
             saveReminders();
         }
     }
-
 
     public static void saveReminders() {
         Log.i("saveReminders", "reminders.size() " + reminders.size());
@@ -675,13 +699,15 @@ public class MainActivity extends AppCompatActivity {
 
         try {
 
-            remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (name VARCHAR, tag VARCHAR, freq INT(4), notify INT(1), completed VARCHAR)");
+            remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (id VARCHAR, name VARCHAR, tag VARCHAR, freq INT(4), notify INT(1), completed VARCHAR)");
+
             remindersDB.delete("reminders", null, null);
 
             for (reminderItem thisReminder : reminders) {
 
                 int notifyInt = (thisReminder.notify) ? 1 : 0;
-                remindersDB.execSQL("INSERT INTO reminders (name, tag, freq, notify, completed) VALUES ('" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
+                Log.i("SavingDB", "thisReminder.reminderID " + thisReminder.reminderID);
+                remindersDB.execSQL("INSERT INTO reminders (id, name, tag, freq, notify, completed) VALUES ('" + thisReminder.reminderID + "' , '" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
 
             }
 
@@ -705,6 +731,7 @@ public class MainActivity extends AppCompatActivity {
 
             Cursor c = remindersDB.rawQuery("SELECT * FROM reminders", null);
 
+            int idIndex = c.getColumnIndex("id");
             int nameIndex = c.getColumnIndex("name");
             int tagIndex = c.getColumnIndex("tag");
             int freqIndex = c.getColumnIndex("freq");
@@ -721,7 +748,7 @@ public class MainActivity extends AppCompatActivity {
 
                 Boolean thisNotify = (c.getInt(notifyIndex) == 1) ? true : false;
 
-                reminderItem newReminder = new reminderItem(c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), thisNotify, "Loading");
+                reminderItem newReminder = new reminderItem(c.getString(idIndex), c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), thisNotify, "Loading");
 
                 for (String thisCompleted : completed) {
                     newReminder.completed.add(thisCompleted);
@@ -765,6 +792,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setNotificationTime() {
         TimePicker timePicker = (TimePicker) findViewById(R.id.timePicker);
+        timePicker.setIs24HourView(true);
         // set current time into timepicker
         timePicker.setCurrentHour(reminderHour);
         timePicker.setCurrentMinute(reminderMinute);
@@ -781,13 +809,14 @@ public class MainActivity extends AppCompatActivity {
 
     private TimePickerDialog.OnTimeSetListener timePickerListener =
             new TimePickerDialog.OnTimeSetListener() {
-                public void onTimeSet(TimePicker view, int selectedHour,
+                public void onTimeSet(TimePicker view, int hourOfDay,
                                       int selectedMinute) {
-                    reminderHour = selectedHour;
+                    reminderHour = hourOfDay;
                     reminderMinute = selectedMinute;
                     TimePicker timePicker = (TimePicker) findViewById(R.id.timePicker);
                     timePicker.setVisibility(View.INVISIBLE);
                     Log.i("New Notification time ", reminderHour + " " + reminderMinute);
+                    invalidateOptionsMenu();
                 }
             };
 
@@ -803,8 +832,8 @@ public class MainActivity extends AppCompatActivity {
         new AlertDialog.Builder(MainActivity.this)
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setTitle("Over write current info with Google data?")
-                .setMessage("Do you want your Google data to overwrite current, or keep your current data, which will then overwrite Google?")
-                .setPositiveButton("Overwrite", new DialogInterface.OnClickListener() {
+                .setMessage("Which data should be used? Current app data or Google saved data?")
+                .setPositiveButton("Google", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         Toast.makeText(context, "Loading Google Data", Toast.LENGTH_SHORT).show();
@@ -813,7 +842,7 @@ public class MainActivity extends AppCompatActivity {
                         startActivityForResult(signInIntent, RC_SIGN_IN);
                     }
                 })
-                .setNegativeButton("Keep", new DialogInterface.OnClickListener() {
+                .setNegativeButton("Current App", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         Toast.makeText(context, "Keeping Current Data", Toast.LENGTH_SHORT).show();
@@ -870,10 +899,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void signOut() {
-        saveToGoogle();
+//        saveToGoogle();
         mAuth.signOut();
         Auth.GoogleSignInApi.signOut(mGoogleApiClient);
-        Log.i("Signed Out", "Complete");
+        Log.i("signOut", "Complete");
         Toast.makeText(MainActivity.this, "Signed Out", Toast.LENGTH_SHORT).show();
         invalidateOptionsMenu();
     }
@@ -893,11 +922,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String notifyText = "Reminder Time " + reminderHour;
-                if(reminderMinute<10){
-                    notifyText += ":0" + reminderMinute;
-                } else {
-                    notifyText += ":" + reminderMinute;
-                }
+        if (reminderMinute < 10) {
+            notifyText += ":0" + reminderMinute;
+        } else {
+            notifyText += ":" + reminderMinute;
+        }
 
         menu.add(0, 0, 0, signInOut).setShortcut('3', 'c');
         menu.add(0, 1, 0, notifyText).setShortcut('3', 'c');
@@ -956,7 +985,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         Log.i("onStart", "Starting");
-        mAuth.addAuthStateListener(mAuthListener);
+//        mAuth.addAuthStateListener(mAuthListener);
         user = mAuth.getCurrentUser();
     }
 
@@ -964,7 +993,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         Log.i("onStop", "Starting");
-        mAuth.removeAuthStateListener(mAuthListener);
+//        mAuth.removeAuthStateListener(mAuthListener);
         setNotifications();
     }
 
@@ -988,7 +1017,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         Log.i("onDestroy", "Starting");
-        saveToGoogle();
-
+//        saveToGoogle();
+        mAuth.removeAuthStateListener(mAuthListener);
     }
 }
