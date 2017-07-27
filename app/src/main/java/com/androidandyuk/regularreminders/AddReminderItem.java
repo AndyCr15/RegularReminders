@@ -34,6 +34,7 @@ import java.util.Date;
 
 import static com.androidandyuk.regularreminders.MainActivity.activeReminder;
 import static com.androidandyuk.regularreminders.MainActivity.activeReminderPosition;
+import static com.androidandyuk.regularreminders.MainActivity.dayOfWeek;
 import static com.androidandyuk.regularreminders.MainActivity.itemLongPressedPosition;
 import static com.androidandyuk.regularreminders.MainActivity.reminders;
 import static com.androidandyuk.regularreminders.MainActivity.saveCompletedToGoogle;
@@ -141,7 +142,7 @@ public class AddReminderItem extends AppCompatActivity {
                 Calendar date = Calendar.getInstance();
                 date.set(year, month, day);
                 //check it's not passed today, otherwise make it today
-                if(reminderItem.daysDifference(date.getTime(), staticTodayDate) < 0){
+                if (reminderItem.daysDifference(date.getTime(), staticTodayDate) < 0) {
                     date = Calendar.getInstance();
                     Toast.makeText(AddReminderItem.this, "Can't add a future date. Adding today instead.", Toast.LENGTH_LONG).show();
                 }
@@ -158,19 +159,19 @@ public class AddReminderItem extends AppCompatActivity {
 
             @Override
             public void onClick(View v) {
-                if ( notifyToggle.isChecked()) {
+                if (notifyToggle.isChecked()) {
 //                    notifyToggle.setTextOff("ON");
                     notifyToggle.setChecked(true);
                     reminders.get(activeReminderPosition).notify = true;
                     notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
-                    Log.i("SetNotify","" + reminders.get(activeReminderPosition).notify);
+                    Log.i("SetNotify", "" + reminders.get(activeReminderPosition).notify);
 
                 } else {
 //                    notifyToggle.setTextOn("OFF");
                     notifyToggle.setChecked(false);
                     reminders.get(activeReminderPosition).notify = false;
                     notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners_back));
-                    Log.i("SetNotify","" + reminders.get(activeReminderPosition).notify);
+                    Log.i("SetNotify", "" + reminders.get(activeReminderPosition).notify);
 
                 }
             }
@@ -200,13 +201,13 @@ public class AddReminderItem extends AppCompatActivity {
     }
 
     public void setReminderDate(View view) {
-        Log.i("setReminderDate","Started");
+        Log.i("setReminderDate", "Started");
         itemLongPressedPosition = -1;
         updateReminderDate();
     }
 
     public void updateReminderDate() {
-        Log.i("updateReminderDate","Started");
+        Log.i("updateReminderDate", "Started");
         String thisDateString = "";
         // read the current date as we're editing and put it in thisDateString instead of staticTodayString
         if (itemLongPressedPosition >= 0) {
@@ -243,7 +244,7 @@ public class AddReminderItem extends AppCompatActivity {
     }
 
     public void updateReminder() {
-        Log.i("updateReminder","Started");
+        Log.i("updateReminder", "Started");
         // we're editing, so just update the details
         reminders.get(activeReminderPosition).name = name.getText().toString();
         reminders.get(activeReminderPosition).tag = tag.getText().toString();
@@ -299,7 +300,15 @@ public class AddReminderItem extends AppCompatActivity {
 //            colour.setBackgroundColor();
 
             TextView dayTV = (TextView) myView.findViewById(R.id.dayTV);
-            dayTV.setText("Day");
+
+            String thisDay = null;
+            try {
+                thisDay = (dayOfWeek.format(sdf.parse(s))).substring(0,3);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+            dayTV.setText(thisDay);
 
             TextView dateTV = (TextView) myView.findViewById(R.id.dateTV);
             dateTV.setText(s);
