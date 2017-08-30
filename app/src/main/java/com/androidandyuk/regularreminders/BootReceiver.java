@@ -6,21 +6,18 @@ import android.content.Intent;
 import android.util.Log;
 
 /**
- * Created by AndyCr15 on 06/07/2017.
+ * Created by AndyCr15 on 24/08/2017.
  */
 
-public class NotificationReceiver extends BroadcastReceiver {
+public class BootReceiver extends BroadcastReceiver {
 
-    private static final String TAG = "NotificationReceiver";
+    private static final String TAG = "BootReceiver";
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        Log.i(TAG ,"onReceive");
 
-        Log.i(TAG,"onReceive");
-
-        new MainActivity().checkNotifications(context);
-
-
+        new MainActivity().setRecurring(context);
 
     }
 }

@@ -2,6 +2,7 @@ package com.androidandyuk.regularreminders;
 
 import android.app.AlarmManager;
 import android.app.Dialog;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.TimePickerDialog;
 import android.content.Context;
@@ -17,9 +18,16 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.app.NotificationCompat;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -30,11 +38,9 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.TimePicker;
-import android.widget.Toast;
 
 import com.google.android.gms.auth.api.Auth;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
@@ -74,7 +80,10 @@ import java.util.Map;
 import static com.androidandyuk.regularreminders.reminderItem.daysDifference;
 import static java.lang.Integer.parseInt;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
+
+    private static final String TAG = "MainActivity";
 
     public static SharedPreferences sharedPreferences;
     public static SharedPreferences.Editor ed;
@@ -86,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
     public static FirebaseDatabase database;
     public static FirebaseUser user;
     public static DatabaseReference myRef;
-
 
     String signInOut = "Sign In";
 
@@ -115,8 +123,9 @@ public class MainActivity extends AppCompatActivity {
     // the time the reminders will notify
     public static int reminderHour = 10;
     public static int reminderMinute = 0;
-    public static int remindersOverdue;
     public static String nextNotification;
+
+    public static NotificationManager notificationManager;
 
     static final int TIME_DIALOG_ID = 0;
 
@@ -141,6 +150,18 @@ public class MainActivity extends AppCompatActivity {
 
         staticTodayDate = new Date();
         staticTodayString = sdf.format(staticTodayDate);
+
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
+
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
 
         reminderName = (EditText) findViewById(R.id.reminderName);
         reminderTag = (EditText) findViewById(R.id.reminderTag);
@@ -198,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 reminders.remove(position);
                                 myAdapter.notifyDataSetChanged();
-                                Toast.makeText(context, "Deleted!", Toast.LENGTH_SHORT).show();
+                                Snackbar.make(findViewById(R.id.main), "Deleted", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                                 saveReminders();
                             }
                         })
@@ -232,7 +253,7 @@ public class MainActivity extends AppCompatActivity {
                 .enableAutoManage(this, new GoogleApiClient.OnConnectionFailedListener() {
                     @Override
                     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-                        Toast.makeText(MainActivity.this, "Error", Toast.LENGTH_LONG).show();
+                        Snackbar.make(findViewById(R.id.main), "Error", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                     }
                 })
                 .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
@@ -246,11 +267,12 @@ public class MainActivity extends AppCompatActivity {
                 if (user != null) {
                     // User is signed in
                     Log.d("Login", "onAuthStateChanged:signed_in:" + user.getUid());
-                    Toast.makeText(MainActivity.this, "Signed in as " + user.getDisplayName(), Toast.LENGTH_SHORT).show();
+                    Snackbar.make(findViewById(R.id.main), "Signed in as " + user.getDisplayName(), Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                     Log.i("SignedIn", "onAuthStateChanged");
                     loadFromGoogle();
                     myAdapter.notifyDataSetChanged();
                     invalidateOptionsMenu();
+                    setToolbarUser();
                 } else {
                     // User is signed out
                     Log.d("Login", "onAuthStateChanged:signed_out");
@@ -262,6 +284,7 @@ public class MainActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
 
         mAuth.addAuthStateListener(mAuthListener);
+
     }
 
     @Override
@@ -278,6 +301,31 @@ public class MainActivity extends AppCompatActivity {
                 break;
 
         }
+
+    }
+
+    public void setRecurring(Context context) {
+        Log.i(TAG, "setRecurring");
+
+        AlarmManager alarmMgr = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(context, NotificationReceiver.class);
+        PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
+
+        SharedPreferences sharedPreferences = context.getSharedPreferences("regularreminders", Context.MODE_PRIVATE);
+        int reminderHour = sharedPreferences.getInt("reminderHour", 10);
+        int reminderMinute = sharedPreferences.getInt("reminderMinute", 0);
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, reminderHour);
+        calendar.set(Calendar.MINUTE, reminderMinute);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+
+        alarmMgr.setRepeating(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(),
+                AlarmManager.INTERVAL_DAY, alarmIntent);
+
+        Log.i(TAG,"AlarmSet " + calendar);
 
     }
 
@@ -322,7 +370,7 @@ public class MainActivity extends AppCompatActivity {
                         saveReminders();
                         return true;
                     } else {
-                        Toast.makeText(MainActivity.this, "Please complete all details", Toast.LENGTH_LONG).show();
+                        Snackbar.make(findViewById(R.id.main), "Please complete all details", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                     }
                 }
                 return false;
@@ -332,14 +380,65 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    public void setNotifications() {
-        Log.i("setNotifications", "Starting");
-        if (reminders.size() >= 0) {
+    public void checkNotifications(Context context) {
+        Log.i(TAG, "checkNotificationsNew");
+
+        ArrayList<reminderItem> theseReminders = new ArrayList<>();
+
+        theseReminders.clear();
+
+        SharedPreferences sharedPreferences = context.getSharedPreferences("regularreminders", Context.MODE_PRIVATE);
+
+        int reminderHour = sharedPreferences.getInt("reminderHour", 10);
+        int reminderMinute = sharedPreferences.getInt("reminderMinute", 0);
+
+        SQLiteDatabase remindersDB = context.openOrCreateDatabase("Reminders", MODE_PRIVATE, null);
+
+        // load in the reminders from the database
+        try {
+
+            Cursor c = remindersDB.rawQuery("SELECT * FROM reminders", null);
+
+            int idIndex = c.getColumnIndex("id");
+            int nameIndex = c.getColumnIndex("name");
+            int tagIndex = c.getColumnIndex("tag");
+            int freqIndex = c.getColumnIndex("freq");
+            int notifyIndex = c.getColumnIndex("notify");
+            int completedIndex = c.getColumnIndex("completed");
+
+            c.moveToFirst();
+
+            do {
+                ArrayList<String> completed;
+
+                completed = (ArrayList<String>) ObjectSerializer.deserialize(c.getString(completedIndex));
+
+                Boolean thisNotify = (c.getInt(notifyIndex) == 1) ? true : false;
+
+                reminderItem newReminder = new reminderItem(c.getString(idIndex), c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), thisNotify, "Loading");
+
+                for (String thisCompleted : completed) {
+                    newReminder.completed.add(thisCompleted);
+                }
+                theseReminders.add(newReminder);
+
+            } while (c.moveToNext());
+
+
+        } catch (Exception e) {
+
+            Log.i("LoadingDB", "Caught Error");
+            e.printStackTrace();
+
+        }
+
+
+        if (theseReminders.size() >= 0) {
             // there are reminders, now find the last one to set the notification
             int lastNotify = -1;
-            for (int i = reminders.size() - 1; i >= 0; i--) {
+            for (int i = theseReminders.size() - 1; i >= 0; i--) {
                 // check if this reminders is set to notify
-                if (reminders.get(i).notify) {
+                if (theseReminders.get(i).notify) {
                     lastNotify = i;
                 }
 
@@ -347,8 +446,113 @@ public class MainActivity extends AppCompatActivity {
 
             // only set a notification if there is one that needs notifying of
             if (lastNotify >= 0) {
-                Log.i("setNotification", "Using " + reminders.get(lastNotify));
-                nextNotification = reminders.get(lastNotify).name;
+                Log.i("setNotification", "Using " + theseReminders.get(lastNotify));
+                Log.i("lastNotify", "" + lastNotify);
+
+
+                // start building the string which will be the notification message
+                String nextNotification = theseReminders.get(lastNotify).name;
+
+
+                String notificationText = "Don't forget to " + nextNotification;
+                if (lastNotify == 1) {
+                    notificationText += " and one other reminder are due";
+                }
+                if (lastNotify > 1) {
+                    notificationText += " and " + (lastNotify) + " other reminders are due";
+                }
+
+                int notificationID = 100;
+                NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+//
+                Intent resultIntent = new Intent(context, MainActivity.class);
+                resultIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+//
+                PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationID, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+                NotificationCompat.Builder builder = (NotificationCompat.Builder) new NotificationCompat.Builder(context)
+                        .setContentIntent(pendingIntent)
+                        .setSmallIcon(R.drawable.rr)
+                        .setContentTitle("Check your reminders!")
+                        .setContentText(notificationText)
+                        .setAutoCancel(true);
+//                .addAction(R.drawable.icon, "Snooze", pendingSnoozeIntent);
+
+                notificationManager.notify(notificationID, builder.build());
+
+            }
+        }
+    }
+
+    public void checkNotificationsOld(Context context) {
+        Log.i(TAG, "checkNotifications");
+
+
+        ArrayList<reminderItem> theseReminders = new ArrayList<>();
+
+        theseReminders.clear();
+
+        SharedPreferences sharedPreferences = context.getSharedPreferences("regularreminders", Context.MODE_PRIVATE);
+
+        int reminderHour = sharedPreferences.getInt("reminderHour", 10);
+        int reminderMinute = sharedPreferences.getInt("reminderMinute", 0);
+
+        SQLiteDatabase remindersDB = context.openOrCreateDatabase("Reminders", MODE_PRIVATE, null);
+
+        try {
+
+            Cursor c = remindersDB.rawQuery("SELECT * FROM reminders", null);
+
+            int idIndex = c.getColumnIndex("id");
+            int nameIndex = c.getColumnIndex("name");
+            int tagIndex = c.getColumnIndex("tag");
+            int freqIndex = c.getColumnIndex("freq");
+            int notifyIndex = c.getColumnIndex("notify");
+            int completedIndex = c.getColumnIndex("completed");
+
+            c.moveToFirst();
+
+            do {
+                ArrayList<String> completed;
+
+                completed = (ArrayList<String>) ObjectSerializer.deserialize(c.getString(completedIndex));
+
+                Boolean thisNotify = (c.getInt(notifyIndex) == 1) ? true : false;
+
+                reminderItem newReminder = new reminderItem(c.getString(idIndex), c.getString(nameIndex), c.getString(tagIndex), c.getInt(freqIndex), thisNotify, "Loading");
+
+                for (String thisCompleted : completed) {
+                    newReminder.completed.add(thisCompleted);
+                }
+                theseReminders.add(newReminder);
+
+            } while (c.moveToNext());
+
+
+        } catch (Exception e) {
+
+            Log.i("LoadingDB", "Caught Error");
+            e.printStackTrace();
+
+        }
+
+
+        if (theseReminders.size() >= 0) {
+            // there are reminders, now find the last one to set the notification
+            int lastNotify = -1;
+            for (int i = theseReminders.size() - 1; i >= 0; i--) {
+                // check if this reminders is set to notify
+                if (theseReminders.get(i).notify) {
+                    lastNotify = i;
+                }
+
+            }
+
+            // only set a notification if there is one that needs notifying of
+            if (lastNotify >= 0) {
+                Log.i("setNotification", "Using " + theseReminders.get(lastNotify));
+                String nextNotification = theseReminders.get(lastNotify).name;
 
                 Calendar calendar = Calendar.getInstance();
 //                int systemHour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -365,29 +569,23 @@ public class MainActivity extends AppCompatActivity {
                 int timeZone2 = calendar.get(Calendar.HOUR) - timeZone1;
 
                 calendar.set(Calendar.HOUR_OF_DAY, (reminderHour + timeZone2));
-                Log.i("reminderHour + tZ", "" + (reminderHour + timeZone2));
                 calendar.set(Calendar.MINUTE, reminderMinute);
                 calendar.set(Calendar.SECOND, 0);
 
-                Date nextDue = reminderItem.nextDue(reminders.get(lastNotify));
+                Date nextDue = reminderItem.nextDue(theseReminders.get(lastNotify));
                 int dif = daysDifference(new Date(), nextDue);
                 if (dif < 0) {
                     // if it's overdue, set to alarm today
                     dif = 0;
-                    Log.i("Dif_set_to", " " + dif);
                 }
 
                 if (dif == 0 && (calendar.before(Calendar.getInstance()))) {
                     // it's due today, but it's passed alarm time
                     dif = 1;
-                    Log.i("Dif_set_to", " " + dif);
                 }
 
                 calendar.add(Calendar.DAY_OF_YEAR, dif);
 
-//            calendar.add(Calendar.SECOND, 10);
-
-                Log.i("DaysUntilNextReminder", "" + dif);
 
                 // all this to add the number of days to the date, to see how many WILL be overdue when the notification hits
                 Date alarmDate = new Date();
@@ -401,7 +599,15 @@ public class MainActivity extends AppCompatActivity {
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
-                remindersOverdue = remindersOverdue(alarmDate);
+                int remindersOverdue = 0;
+                for (reminderItem thisReminder : theseReminders) {
+                    Date thisDue = reminderItem.nextDue(thisReminder);
+                    int thisDif = daysDifference(alarmDate, thisDue);
+                    if (thisDif < 1) {
+                        remindersOverdue++;
+                        Log.i("remindersOverdue", thisReminder.name + " is due");
+                    }
+                }
 
                 String notificationText = "Don't forget to " + nextNotification;
                 if (remindersOverdue == 2) {
@@ -411,23 +617,31 @@ public class MainActivity extends AppCompatActivity {
                     notificationText += " and " + (remindersOverdue - 1) + " other reminders are due";
                 }
 
+                int notificationID = 100;
+                NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+//
+                Intent resultIntent = new Intent(context, MainActivity.class);
+                resultIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+//
+                PendingIntent pendingIntent = PendingIntent.getActivity(context, notificationID, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
 
-                Intent intent = new Intent(getApplicationContext(), NotificationReceiver.class);
-                intent.putExtra("Message", notificationText);
+                NotificationCompat.Builder builder = (NotificationCompat.Builder) new NotificationCompat.Builder(context)
+                        .setContentIntent(pendingIntent)
+                        .setSmallIcon(R.drawable.rr)
+                        .setContentTitle("Check your reminders!")
+                        .setContentText(notificationText)
+                        .setAutoCancel(true);
+//                .addAction(R.drawable.icon, "Snooze", pendingSnoozeIntent);
 
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(getApplicationContext(), 100, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                notificationManager.notify(notificationID, builder.build());
 
-                AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-
-                Log.i("AlarmSetFor ", "" + calendar.getTimeInMillis());
-                Log.i("TimeNow", "" + Calendar.getInstance().getTimeInMillis());
             }
         }
     }
 
-    public int remindersOverdue(Date fromDate) {
-        remindersOverdue = 0;
+    public static int remindersOverdue(Date fromDate) {
+        int remindersOverdue = 0;
         for (reminderItem thisReminder : reminders) {
             Date nextDue = reminderItem.nextDue(thisReminder);
             int dif = daysDifference(fromDate, nextDue);
@@ -471,21 +685,6 @@ public class MainActivity extends AppCompatActivity {
 
             Context context = App.getContext();
 
-            ImageView instantAdd = (ImageView) myView.findViewById(R.id.instantAdd);
-
-            instantAdd.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Toast.makeText(getApplicationContext(), "Adding Today", Toast.LENGTH_SHORT).show();
-                    s.completed.add(staticTodayString);
-                    Collections.sort(s.completed, new StringDateComparator());
-                    Collections.sort(reminders);
-                    myAdapter.notifyDataSetChanged();
-                    saveReminders();
-                    saveCompletedToGoogle(s);
-                }
-            });
-
             TextView colour = (TextView) myView.findViewById(R.id.colour);
 //            colour.setBackgroundColor();
 
@@ -496,6 +695,20 @@ public class MainActivity extends AppCompatActivity {
             }
 
             TextView due = (TextView) myView.findViewById(R.id.due);
+
+            due.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Snackbar.make(findViewById(R.id.main), "Adding Today", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+                    s.completed.add(staticTodayString);
+                    Collections.sort(s.completed, new StringDateComparator());
+                    Collections.sort(reminders);
+                    myAdapter.notifyDataSetChanged();
+                    saveReminders();
+                    saveCompletedToGoogle(s);
+                }
+            });
+
             Date nextDue = reminderItem.nextDue(s);
 
             int dif = daysDifference(new Date(), nextDue);
@@ -644,7 +857,6 @@ public class MainActivity extends AppCompatActivity {
             myRef.child(user.getUid()).addValueEventListener(new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot dataSnapshot) {
-
                     Log.i("loadFromGoogle", "onDataChange");
                     reminders.clear();
 
@@ -702,9 +914,6 @@ public class MainActivity extends AppCompatActivity {
     public static void saveReminders() {
         Log.i("saveReminders", "reminders.size() " + reminders.size());
 
-        ed.putInt("reminderHour", reminderHour).apply();
-        ed.putInt("reminderMinute", reminderMinute).apply();
-
         try {
 
             remindersDB.execSQL("CREATE TABLE IF NOT EXISTS reminders (id VARCHAR, name VARCHAR, tag VARCHAR, freq INT(4), notify INT(1), completed VARCHAR)");
@@ -724,7 +933,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
 
         }
-
     }
 
     public static void loadReminders() {
@@ -748,7 +956,6 @@ public class MainActivity extends AppCompatActivity {
             c.moveToFirst();
 
             do {
-                Log.i("Cursor: nameIndex", "" + nameIndex);
                 ArrayList<String> completed;
 
                 completed = (ArrayList<String>) ObjectSerializer.deserialize(c.getString(completedIndex));
@@ -781,15 +988,16 @@ public class MainActivity extends AppCompatActivity {
         FileChannel source = null;
         FileChannel destination = null;
 
-        File dir = new File(Environment.getExternalStorageDirectory()+"/RegularReminders/");
-        try{
-            if(dir.mkdir()) {
+        File dir = new File(Environment.getExternalStorageDirectory() + "/RegularReminders/");
+        try {
+            if (dir.mkdir()) {
                 System.out.println("Directory created");
             } else {
                 System.out.println("Directory is not created");
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
+            Log.i("Creating Dir Error", "" + e);
         }
 
         String currentDBPath = "/data/com.androidandyuk.regularreminders/databases/Reminders";
@@ -802,10 +1010,10 @@ public class MainActivity extends AppCompatActivity {
             destination.transferFrom(source, 0, source.size());
             source.close();
             destination.close();
-            Toast.makeText(this, "DB Exported!", Toast.LENGTH_LONG).show();
+            Snackbar.make(findViewById(R.id.main), "DB Exported!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
         } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(this, "Exported Failed!", Toast.LENGTH_LONG).show();
+            Snackbar.make(findViewById(R.id.main), "Exported Failed!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
         }
     }
 
@@ -860,6 +1068,7 @@ public class MainActivity extends AppCompatActivity {
         switch (id) {
             case TIME_DIALOG_ID:
                 return new TimePickerDialog(this, timePickerListener, reminderHour, reminderMinute, false);
+
         }
         return null;
     }
@@ -873,6 +1082,8 @@ public class MainActivity extends AppCompatActivity {
                     TimePicker timePicker = (TimePicker) findViewById(R.id.timePicker);
                     timePicker.setVisibility(View.INVISIBLE);
                     Log.i("New Notification time ", reminderHour + " " + reminderMinute);
+                    ed.putInt("reminderHour", reminderHour).apply();
+                    ed.putInt("reminderMinute", reminderMinute).apply();
                     invalidateOptionsMenu();
                 }
             };
@@ -893,7 +1104,7 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("Sync", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        Toast.makeText(context, "Syncing Google Data", Toast.LENGTH_SHORT).show();
+                        Snackbar.make(findViewById(R.id.main), "Syncing Google Data", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         syncGoogle = true;
                         Log.i("Setting syncGoogle", "" + syncGoogle);
                         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
@@ -903,7 +1114,7 @@ public class MainActivity extends AppCompatActivity {
                 .setNegativeButton("Overwrite", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        Toast.makeText(context, "Loading Google Data", Toast.LENGTH_SHORT).show();
+                        Snackbar.make(findViewById(R.id.main), "Loading Google Data", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         syncGoogle = false;
                         Log.i("Setting syncGoogle", "" + syncGoogle);
                         Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleApiClient);
@@ -947,7 +1158,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             // If sign in fails, display a message to the user.
                             Log.i("GoogleSignIn", "signInWithCredential:failure", task.getException());
-                            Toast.makeText(MainActivity.this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+                            Snackbar.make(findViewById(R.id.main), "Authentication failed.", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         }
                     }
                 });
@@ -958,11 +1169,58 @@ public class MainActivity extends AppCompatActivity {
         mAuth.signOut();
         Auth.GoogleSignInApi.signOut(mGoogleApiClient);
         Log.i("signOut", "Complete");
-        Toast.makeText(MainActivity.this, "Signed Out", Toast.LENGTH_SHORT).show();
+        Snackbar.make(findViewById(R.id.main), "Signed Out", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
         invalidateOptionsMenu();
     }
 
     //   GOOGLE SIGN IN END
+
+    public void setToolbarUser(){
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        View headerView = navigationView.getHeaderView(0);
+        TextView userName = (TextView) headerView.findViewById(R.id.nav_user);
+        if(user.getDisplayName()!=null) {
+            userName.setText(user.getDisplayName());
+        }
+    }
+
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        // Handle navigation view item clicks here.
+        int id = item.getItemId();
+
+        if (id == R.id.nav_settings) {
+
+            Intent intent = new Intent(getApplicationContext(), Settings.class);
+            startActivity(intent);
+
+        } else if (id == R.id.nav_logout) {
+
+            if (user == null) {
+                signIn();
+            } else {
+                signOut();
+            }
+
+        } else if (id == R.id.nav_backup) {
+
+            exportDB();
+
+        } else if (id == R.id.nav_restore) {
+
+            importDB();
+
+        } else if (id == R.id.nav_exit) {
+
+            finish();
+
+        }
+
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+        return true;
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -1044,7 +1302,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        Log.i("onStart", "Starting");
+        Log.i(TAG, "onStart");
 //        mAuth.addAuthStateListener(mAuthListener);
         user = mAuth.getCurrentUser();
     }
@@ -1052,15 +1310,15 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         super.onStop();
-        Log.i("onStop", "Starting");
+        Log.i(TAG, "onStop");
 //        mAuth.removeAuthStateListener(mAuthListener);
-        setNotifications();
+        setRecurring(this);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        Log.i("MainActivity", "onPause");
+        Log.i(TAG, "onPause");
 //        saveReminders();
 //        saveToGoogle();
     }
@@ -1068,7 +1326,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i("MainActivity", "onResume");
+        Log.i(TAG, "onResume");
 //        loadReminders();
 //        loadFromGoogle();
         Collections.sort(reminders);
@@ -1078,7 +1336,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.i("onDestroy", "Starting");
+        Log.i(TAG, "onDestroy");
 //        saveToGoogle();
         mAuth.removeAuthStateListener(mAuthListener);
     }

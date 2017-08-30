@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -23,7 +24,6 @@ import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.widget.ToggleButton;
 
 import java.text.ParseException;
@@ -98,7 +98,7 @@ public class AddReminderItem extends AppCompatActivity {
                                         activeReminder.completed.remove(position);
                                         Collections.sort(activeReminder.completed, new StringDateComparator());
                                         myAdapter.notifyDataSetChanged();
-                                        Toast.makeText(context, "Deleted!", Toast.LENGTH_SHORT).show();
+                                        Snackbar.make(findViewById(R.id.main), "Deleted!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                                         saveReminders();
                                         saveCompletedToGoogle(activeReminder);
                                     }
@@ -107,7 +107,7 @@ public class AddReminderItem extends AppCompatActivity {
                                 .show();
                         return true;
                     } else {
-                        Toast.makeText(AddReminderItem.this, "You must keep a created date", Toast.LENGTH_LONG).show();
+                        Snackbar.make(findViewById(R.id.main), "You must keep a created date", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                         return true;
                     }
                 }
@@ -144,7 +144,7 @@ public class AddReminderItem extends AppCompatActivity {
                 //check it's not passed today, otherwise make it today
                 if (reminderItem.daysDifference(date.getTime(), staticTodayDate) < 0) {
                     date = Calendar.getInstance();
-                    Toast.makeText(AddReminderItem.this, "Can't add a future date. Adding today instead.", Toast.LENGTH_LONG).show();
+                    Snackbar.make(findViewById(R.id.main), "Can't add a future date. Adding today instead.", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
                 }
                 String sdfDate = sdf.format(date.getTime());
                 activeReminder.completed.add(sdfDate);
@@ -259,9 +259,6 @@ public class AddReminderItem extends AppCompatActivity {
         saveReminderToGoogle(activeReminder);
         saveCompletedToGoogle(activeReminder);
 
-//        MainActivity.myAdapter.notifyDataSetChanged();
-//        Collections.sort(reminders);
-//        resetAddItem();
         finish();
     }
 
@@ -424,7 +421,6 @@ public class AddReminderItem extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             updateReminder();
-            saveReminders();
             finish();
             return true;
         }
