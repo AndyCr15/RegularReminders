@@ -18,7 +18,7 @@
         android:onClick="setReminderDate"
         app:elevation="12dp"
         app:fabSize="normal"
-        app:srcCompat="@android:drawable/ic_input_add" />
+        app:srcCompat="@drawable/plus" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -158,7 +158,8 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:background="@drawable/rounded_corners_back"
-                    android:text="ToggleButton" />
+                    android:text="ToggleButton"
+                    android:textColor="@android:color/white" />
 
             </LinearLayout>
 

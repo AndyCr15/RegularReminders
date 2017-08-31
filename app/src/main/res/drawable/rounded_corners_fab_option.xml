@@ -4,19 +4,20 @@
     <!-- Define the background colour -->
     <solid android:color="@color/colorAccent" />
 
-    <!-- Define the border colour and thickness -->
+    <!-- Define the border colour and thickness
     <stroke
         android:width="2dp"
-        android:color="@color/colorPrimary" />
+        android:color="@color/colorPrimary" />-->
 
     <!-- Add some padding -->
     <padding
-        android:bottom="4dp"
-        android:left="4dp"
-        android:right="4dp"
-        android:top="4dp" />
+        android:bottom="8dp"
+        android:left="8dp"
+        android:right="8dp"
+        android:top="8dp" />
 
     <!-- Define the corner radius -->
-    <corners android:radius="2dp" />
+    <corners android:radius="15dp" />
+    <corners android:bottomRightRadius="0dp" />
 
 </shape>

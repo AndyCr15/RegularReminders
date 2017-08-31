@@ -14,6 +14,19 @@ import static com.androidandyuk.regularreminders.MainActivity.sdf;
  * Created by AndyCr15 on 24/06/2017.
  */
 
+enum reminderType {
+    Recurring(1), Single(2), Choose(3);
+    private final int value;
+
+    private reminderType(int value) {
+        this.value = value;
+    }
+
+    public int getValue() {
+        return value;
+    }
+}
+
 public class reminderItem implements Comparable<reminderItem> {
     String reminderID;
     String name;

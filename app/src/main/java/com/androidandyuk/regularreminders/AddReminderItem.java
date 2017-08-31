@@ -60,6 +60,7 @@ public class AddReminderItem extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        overridePendingTransition(R.anim.fadein, R.anim.fadeout);
         setContentView(R.layout.activity_add_reminder_item);
 
         if (activeReminder != null) {
@@ -129,6 +130,10 @@ public class AddReminderItem extends AppCompatActivity {
         name.setText(reminders.get(activeReminderPosition).name);
         tag.setText(reminders.get(activeReminderPosition).tag);
         frequency.setText(Integer.toString(reminders.get(activeReminderPosition).frequency));
+        if(reminders.get(activeReminderPosition).frequency==0){
+            frequency.setText("Single Event");
+            countTV.setText("Single Event");
+        }
         notifyToggle.setChecked(reminders.get(activeReminderPosition).notify);
 
         if (reminders.get(activeReminderPosition).notify) {
@@ -202,8 +207,16 @@ public class AddReminderItem extends AppCompatActivity {
 
     public void setReminderDate(View view) {
         Log.i("setReminderDate", "Started");
-        itemLongPressedPosition = -1;
-        updateReminderDate();
+        // if it's on a single event, remove it
+        if(activeReminder.frequency==0){
+            reminders.remove(activeReminder);
+            Snackbar.make(findViewById(R.id.main), "Completed", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
+            saveReminders();
+            finish();
+        } else {
+            itemLongPressedPosition = -1;
+            updateReminderDate();
+        }
     }
 
     public void updateReminderDate() {
@@ -425,5 +438,11 @@ public class AddReminderItem extends AppCompatActivity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        overridePendingTransition(R.anim.fadein, R.anim.fadeout);
     }
 }
