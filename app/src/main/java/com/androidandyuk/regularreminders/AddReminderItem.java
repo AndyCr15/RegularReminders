@@ -18,6 +18,9 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.DatePicker;
@@ -41,12 +44,14 @@ import static com.androidandyuk.regularreminders.MainActivity.saveCompletedToGoo
 import static com.androidandyuk.regularreminders.MainActivity.saveReminderToGoogle;
 import static com.androidandyuk.regularreminders.MainActivity.saveReminders;
 import static com.androidandyuk.regularreminders.MainActivity.sdf;
-import static com.androidandyuk.regularreminders.MainActivity.staticTodayDate;
 import static com.androidandyuk.regularreminders.MainActivity.staticTodayString;
 
 public class AddReminderItem extends AppCompatActivity {
 
+    private static final String TAG = "AddReminderItem";
+
     static MyCompletedAdapter myAdapter;
+    private static Boolean scrolling = false;
 
     EditText name;
     EditText tag;
@@ -97,11 +102,11 @@ public class AddReminderItem extends AppCompatActivity {
                                     public void onClick(DialogInterface dialog, int which) {
                                         Log.i("Removing", "Reminder " + position);
                                         activeReminder.completed.remove(position);
+                                        saveCompletedToGoogle(activeReminder);
                                         Collections.sort(activeReminder.completed, new StringDateComparator());
                                         myAdapter.notifyDataSetChanged();
                                         Snackbar.make(findViewById(R.id.main), "Deleted!", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
-                                        saveReminders();
-                                        saveCompletedToGoogle(activeReminder);
+//                                        saveReminders();
                                     }
                                 })
                                 .setNegativeButton("No", null)
@@ -114,6 +119,24 @@ public class AddReminderItem extends AppCompatActivity {
                 }
 
             });
+
+            listView.setOnScrollListener(new AbsListView.OnScrollListener() {
+                public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                    // TODO Auto-generated method stub
+                }
+
+                public void onScrollStateChanged(AbsListView view, int scrollState) {
+                    // TODO Auto-generated method stub
+
+                    if (scrollState == 0) {
+                        scrolling = false;
+                    } else {
+                        scrolling = true;
+                    }
+                }
+
+            });
+
         }
 
         // until I implement landscape view, lock the orientation
@@ -130,53 +153,52 @@ public class AddReminderItem extends AppCompatActivity {
         name.setText(reminders.get(activeReminderPosition).name);
         tag.setText(reminders.get(activeReminderPosition).tag);
         frequency.setText(Integer.toString(reminders.get(activeReminderPosition).frequency));
-        if(reminders.get(activeReminderPosition).frequency==0){
-            frequency.setText("Single Event");
+
+        if (reminders.get(activeReminderPosition).frequency == 0) {
+//            frequency.setText("Single Event");
             countTV.setText("Single Event");
         }
         notifyToggle.setChecked(reminders.get(activeReminderPosition).notify);
 
         if (reminders.get(activeReminderPosition).notify) {
-            notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
-
+            notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners_reverse));
         }
 
         logDateSetListener = new DatePickerDialog.OnDateSetListener() {
             @Override
             public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+                Log.i(TAG, "onDateSet");
+
+                if (itemLongPressedPosition >= 0) {
+                    Log.i(TAG, "itemLongPressedPosition " + itemLongPressedPosition);
+                    activeReminder.completed.remove(itemLongPressedPosition);
+                }
+
                 Calendar date = Calendar.getInstance();
                 date.set(year, month, day);
-                //check it's not passed today, otherwise make it today
-                if (reminderItem.daysDifference(date.getTime(), staticTodayDate) < 0) {
-                    date = Calendar.getInstance();
-                    Snackbar.make(findViewById(R.id.main), "Can't add a future date. Adding today instead.", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
-                }
                 String sdfDate = sdf.format(date.getTime());
                 activeReminder.completed.add(sdfDate);
-                Collections.sort(activeReminder.completed, new StringDateComparator());
-                saveReminders();
                 saveCompletedToGoogle(activeReminder);
+                Collections.sort(activeReminder.completed, new StringDateComparator());
                 myAdapter.notifyDataSetChanged();
+//                saveReminders();
             }
         };
 
         notifyToggle.setOnClickListener(new View.OnClickListener() {
-
             @Override
             public void onClick(View v) {
                 if (notifyToggle.isChecked()) {
 //                    notifyToggle.setTextOff("ON");
                     notifyToggle.setChecked(true);
                     reminders.get(activeReminderPosition).notify = true;
-                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
-                    Log.i("SetNotify", "" + reminders.get(activeReminderPosition).notify);
+                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners_reverse));
 
                 } else {
 //                    notifyToggle.setTextOn("OFF");
                     notifyToggle.setChecked(false);
                     reminders.get(activeReminderPosition).notify = false;
-                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners_back));
-                    Log.i("SetNotify", "" + reminders.get(activeReminderPosition).notify);
+                    notifyToggle.setBackgroundDrawable(getResources().getDrawable(R.drawable.rounded_corners));
 
                 }
             }
@@ -203,15 +225,19 @@ public class AddReminderItem extends AppCompatActivity {
 
             }
         });
+
+        Collections.sort(activeReminder.completed, new StringDateComparator());
+        myAdapter.notifyDataSetChanged();
+
     }
 
     public void setReminderDate(View view) {
         Log.i("setReminderDate", "Started");
         // if it's on a single event, remove it
-        if(activeReminder.frequency==0){
+        if (activeReminder.frequency == 0) {
             reminders.remove(activeReminder);
             Snackbar.make(findViewById(R.id.main), "Completed", Snackbar.LENGTH_SHORT).setAction("Action", null).show();
-            saveReminders();
+//            saveReminders();
             finish();
         } else {
             itemLongPressedPosition = -1;
@@ -246,33 +272,38 @@ public class AddReminderItem extends AppCompatActivity {
 
         DatePickerDialog dialog = new DatePickerDialog(
                 AddReminderItem.this,
-                R.style.datepicker,
+//                R.style.datepicker,
                 logDateSetListener,
                 year, month, day);
-        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.GRAY));
         dialog.show();
-        if (itemLongPressedPosition >= 0) {
-            activeReminder.completed.remove(itemLongPressedPosition);
-        }
     }
 
     public void updateReminder() {
-        Log.i("updateReminder", "Started");
+        for (reminderItem thisItem : reminders) {
+            Log.i("Reminder ", thisItem.name);
+        }
+
+        Log.i(TAG, "updateReminder");
         // we're editing, so just update the details
-        reminders.get(activeReminderPosition).name = name.getText().toString();
-        reminders.get(activeReminderPosition).tag = tag.getText().toString();
+//        reminders.get(activeReminderPosition).name = name.getText().toString();
+        activeReminder.name = name.getText().toString();
+//        reminders.get(activeReminderPosition).tag = tag.getText().toString();
+        activeReminder.tag = tag.getText().toString();
         try {
-            reminders.get(activeReminderPosition).frequency = Integer.parseInt(frequency.getText().toString());
+            activeReminder.frequency = Integer.parseInt(frequency.getText().toString());
         } catch (NumberFormatException e) {
             e.printStackTrace();
         }
-        reminders.get(activeReminderPosition).notify = notifyToggle.isChecked();
+        activeReminder.notify = notifyToggle.isChecked();
 
-        saveReminders();
+        for (reminderItem thisItem : reminders) {
+            Log.i("Reminder ", thisItem.name);
+        }
+
+//        saveReminders();
         saveReminderToGoogle(activeReminder);
         saveCompletedToGoogle(activeReminder);
-
-        finish();
     }
 
     public class MyCompletedAdapter extends BaseAdapter {
@@ -281,6 +312,8 @@ public class AddReminderItem extends AppCompatActivity {
         public MyCompletedAdapter(ArrayList<String> completedDataAdapter) {
             this.completedDataAdapter = completedDataAdapter;
         }
+
+        private int lastPosition = -1;
 
         @Override
         public int getCount() {
@@ -306,41 +339,42 @@ public class AddReminderItem extends AppCompatActivity {
 
             final String s = activeReminder.completed.get(position);
 
-            TextView colour = (TextView) myView.findViewById(R.id.colour);
-//            colour.setBackgroundColor();
+            TextView colour = myView.findViewById(R.id.colour);
 
-            TextView dayTV = (TextView) myView.findViewById(R.id.dayTV);
+            TextView dayTV = myView.findViewById(R.id.dayTV);
 
             String thisDay = null;
             try {
-                thisDay = (dayOfWeek.format(sdf.parse(s))).substring(0,3);
+                thisDay = (dayOfWeek.format(sdf.parse(s))).substring(0, 3);
             } catch (ParseException e) {
                 e.printStackTrace();
             }
 
             dayTV.setText(thisDay);
 
-            TextView dateTV = (TextView) myView.findViewById(R.id.dateTV);
+            TextView dateTV = myView.findViewById(R.id.dateTV);
             dateTV.setText(s);
 
-            TextView onTime = (TextView) myView.findViewById(R.id.onTime);
+            TextView onTime = myView.findViewById(R.id.onTime);
 
             String schedule = "";
             int dif = 0;
 
-            if (position == reminders.get(activeReminderPosition).completed.size() - 1) {
+            if (position >= completedDataAdapter.size() - 1) {
                 //this is the last item in the list
                 schedule = "Created";
                 onTime.setTextColor(ContextCompat.getColor(context, R.color.colorAccent));
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGrey));
             }
 
-            if (position < reminders.get(activeReminderPosition).completed.size() - 1) {
+            if (position < completedDataAdapter.size() - 1) {
                 // we're in the list somewhere
 
                 try {
-                    dif = (reminderItem.daysDifference(sdf.parse(s), sdf.parse(activeReminder.completed.get(position + 1)))) + activeReminder.frequency;
+                    dif = (reminderItem.daysDifference(sdf.parse(s), sdf.parse(completedDataAdapter.get(position + 1)))) + activeReminder.frequency;
                 } catch (ParseException e) {
+                    e.printStackTrace();
+                } catch (IndexOutOfBoundsException e) {
                     e.printStackTrace();
                 }
 
@@ -404,6 +438,12 @@ public class AddReminderItem extends AppCompatActivity {
 
             }
             onTime.setText(schedule);
+
+            if (scrolling) {
+                Animation animation = AnimationUtils.loadAnimation(context, (position > lastPosition) ? R.anim.up_from_bottom : R.anim.down_from_top);
+                myView.startAnimation(animation);
+                lastPosition = position;
+            }
             return myView;
         }
 
@@ -417,12 +457,12 @@ public class AddReminderItem extends AppCompatActivity {
         tag = (EditText) findViewById(R.id.tagET);
         frequency = (EditText) findViewById(R.id.frequencyET);
 
-//        name.setText(null);
-//        name.clearFocus();
-//        tag.setText(null);
-//        tag.clearFocus();
-//        frequency.setText(null);
-//        frequency.clearFocus();
+        name.setText(null);
+        name.clearFocus();
+        tag.setText(null);
+        tag.clearFocus();
+        frequency.setText(null);
+        frequency.clearFocus();
     }
 
     @Override
@@ -441,8 +481,14 @@ public class AddReminderItem extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
+        saveReminders();
         overridePendingTransition(R.anim.fadein, R.anim.fadeout);
     }
 }

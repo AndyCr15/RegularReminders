@@ -30,7 +30,6 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.app.NotificationCompat;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -42,7 +41,9 @@ import android.view.ViewGroup;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.view.animation.AnimationSet;
+import android.view.animation.AnimationUtils;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
@@ -93,6 +94,8 @@ public class MainActivity extends AppCompatActivity
 
     private static final String TAG = "MainActivity";
 
+    private static Boolean scrolling = false;
+
     public static SharedPreferences sharedPreferences;
     public static SharedPreferences.Editor ed;
     public static SimpleDateFormat sdf = new SimpleDateFormat("dd/MMM/yyyy");
@@ -133,6 +136,7 @@ public class MainActivity extends AppCompatActivity
     public static int reminderMinute = 0;
 
     public static String reminderDefault = "Recurring";
+    public static String advancedWarning = "One";
     public static int daysDefault = 7;
 
     static final int TIME_DIALOG_ID = 0;
@@ -254,6 +258,22 @@ public class MainActivity extends AppCompatActivity
 
         });
 
+        listView.setOnScrollListener(new AbsListView.OnScrollListener() {
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                // TODO Auto-generated method stub
+            }
+
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+                // TODO Auto-generated method stub
+
+                if (scrollState == 0) {
+                    scrolling = false;
+                } else {
+                    scrolling = true;
+                }
+            }
+        });
+
         floatingActionButton.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View view) {
@@ -262,17 +282,8 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-//        Log.i("Saving sP", "Beginning");
-//        String name = "rrSharedPref";
-//        int mode = MODE_PRIVATE;
-//        File path = new File(Environment.getExternalStorageDirectory().toString());
-//        File file = new File(path, "MySharedPreferences.xml");
-//        Log.i("Saving sP", "F:" + file);
-//        saveSharedPreferences(name, mode, file);
-
         File dir = getDatabasePath("reminders");
         Log.i("DBPath", "" + dir.getAbsolutePath());
-
 
         // Configure Google Sign In
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -320,6 +331,9 @@ public class MainActivity extends AppCompatActivity
         mAuth.addAuthStateListener(mAuthListener);
 
         setNotiMenu();
+
+        Collections.sort(reminders);
+        myAdapter.notifyDataSetChanged();
 
     }
 
@@ -410,13 +424,11 @@ public class MainActivity extends AppCompatActivity
                 }
                 break;
             case "Single":
-                recurringTV.setVisibility(View.INVISIBLE);
-                singleTV.setVisibility(View.INVISIBLE);
+                hideFABOptions();
                 showAddReminder(tag);
                 break;
             case "Recurring":
-                recurringTV.setVisibility(View.INVISIBLE);
-                singleTV.setVisibility(View.INVISIBLE);
+                hideFABOptions();
                 showAddReminder(tag);
                 break;
         }
@@ -450,7 +462,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void hideFABOptions() {
-        if(recurringTV.isShown()) {
+        if (recurringTV.isShown()) {
             Animation sFadeOut = new AlphaAnimation(1, 0);
 
             sFadeOut.setDuration(animTime);
@@ -479,7 +491,6 @@ public class MainActivity extends AppCompatActivity
         shield.setVisibility(View.INVISIBLE);
     }
 
-
     public void showAddReminder(String reason) {
 
         Animation fadeIn = new AlphaAnimation(0, 1);
@@ -500,8 +511,6 @@ public class MainActivity extends AppCompatActivity
         addReminder.startAnimation(animation);
 
 
-
-
         Log.i("showAddReminder", "Starting");
 
         reminderFrequency.setText("");
@@ -520,7 +529,14 @@ public class MainActivity extends AppCompatActivity
                     // Perform action on key press
                     String name = reminderName.getText().toString();
                     String tag = reminderTag.getText().toString();
-                    int freq = parseInt(reminderFrequency.getText().toString());
+
+                    int freq = 0;
+                    try {
+                        freq = parseInt(reminderFrequency.getText().toString());
+                    } catch (NumberFormatException e) {
+                        e.printStackTrace();
+                    }
+
                     if (!name.equals("") && freq >= 0) {
                         addReminder(name, tag, freq);
                         return true;
@@ -578,13 +594,12 @@ public class MainActivity extends AppCompatActivity
             });
         }
 
-        InputMethodManager imm = (InputMethodManager)   getSystemService(Context.INPUT_METHOD_SERVICE);
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
     }
 
     public void addReminder(String name, String tag, int freq) {
-        addReminder.setVisibility(View.INVISIBLE);
-        shield.setVisibility(View.INVISIBLE);
+        hideReminder();
         reminderItem newReminder = new reminderItem(name, tag, freq);
         reminders.add(newReminder);
         saveReminderToGoogle(newReminder);
@@ -611,13 +626,13 @@ public class MainActivity extends AppCompatActivity
 
         View thisView = this.getCurrentFocus();
         if (thisView != null) {
-            InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.hideSoftInputFromWindow(thisView.getWindowToken(), 0);
         }
     }
 
     private void hideReminder() {
-        if(addReminder.isShown()) {
+        if (addReminder.isShown()) {
             Animation sFadeOut = new AlphaAnimation(1, 0);
             sFadeOut.setDuration(animTime);
             AnimationSet sAnimation = new AnimationSet(true);
@@ -638,16 +653,14 @@ public class MainActivity extends AppCompatActivity
     }
 
     public void checkNotifications(Context context) {
-        Log.i(TAG, "checkNotificationsNew");
+        Log.i(TAG, "checkNotifications");
 
         ArrayList<reminderItem> theseReminders = new ArrayList<>();
+        ArrayList<String> overdue = new ArrayList();
 
         theseReminders.clear();
 
         SharedPreferences sharedPreferences = context.getSharedPreferences("regularreminders", Context.MODE_PRIVATE);
-
-        int reminderHour = sharedPreferences.getInt("reminderHour", 10);
-        int reminderMinute = sharedPreferences.getInt("reminderMinute", 0);
 
         SQLiteDatabase remindersDB = context.openOrCreateDatabase("Reminders", MODE_PRIVATE, null);
 
@@ -689,35 +702,80 @@ public class MainActivity extends AppCompatActivity
 
         }
 
+        String advancedWarning = sharedPreferences.getString("advancedWarning", "One");
+        Long advancedWarningMillis = 86400000L;
+
+        switch(advancedWarning){
+            case "Due":
+                advancedWarningMillis = 0L;
+                break;
+            case "One":
+                advancedWarningMillis = 86400000L;
+                break;
+            case "Two":
+                advancedWarningMillis =172800000L;
+                break;
+        }
+
+        Calendar nowCal = Calendar.getInstance();
+        nowCal.set(Calendar.HOUR_OF_DAY,24);
+        nowCal.set(Calendar.MINUTE,0);
+        nowCal.set(Calendar.SECOND,0);
+        nowCal.set(Calendar.MILLISECOND,0);
+        Long now = nowCal.getTimeInMillis();
 
         if (theseReminders.size() >= 0) {
             // there are reminders, now find the last one to set the notification
             int lastNotify = -1;
-            for (int i = theseReminders.size() - 1; i >= 0; i--) {
-                // check if this reminders is set to notify
-                if (theseReminders.get(i).notify) {
-                    lastNotify = i;
-                }
+            for (int i = 0 ; i < theseReminders.size(); i++) {
+                //check if it's due/overdue
+                Date date = reminderItem.nextDue(theseReminders.get(i));
+                Long dueMillis = date.getTime();
 
+                if (now + advancedWarningMillis >= dueMillis) {
+                    // check if this reminders is set to notify
+                    if (theseReminders.get(i).notify) {
+                        lastNotify = i;
+                    }
+                }
             }
 
-            // only set a notification if there is one that needs notifying of
+            //only do the rest if we have a notification to send
             if (lastNotify >= 0) {
+                // load the overdue into it's own Array
+                for (int i = 0; i <= lastNotify; i++) {
+
+                    Date nextDue = reminderItem.nextDue(theseReminders.get(i));
+                    String due = "";
+
+                    int dif = daysDifference(new Date(), nextDue);
+
+                    // first set the text
+                    if (dif > 1) {
+                        due = " due in " + dif + " days";
+                    }
+                    if (dif == 1) {
+                        due = " due tomorrow";
+                    }
+                    if (dif < 0) {
+                        if (Math.abs(dif) == 1) {
+                            due = " now " + Math.abs(dif) + " day late";
+                        } else {
+                            due = " now " + Math.abs(dif) + " days late";
+                        }
+                    }
+                    if (dif == 0) {
+                        due = "Due today";
+                    }
+
+                    String message = theseReminders.get(i).name + due;
+
+                    overdue.add(message);
+                }
+
+
                 Log.i("setNotification", "Using " + theseReminders.get(lastNotify));
                 Log.i("lastNotify", "" + lastNotify);
-
-
-                // start building the string which will be the notification message
-                String nextNotification = theseReminders.get(lastNotify).name;
-
-
-                String notificationText = "Don't forget to " + nextNotification;
-                if (lastNotify == 1) {
-                    notificationText += " and one other reminder are due";
-                }
-                if (lastNotify > 1) {
-                    notificationText += " and " + (lastNotify) + " other reminders are due";
-                }
 
 
                 int notificationID = 100;
@@ -745,37 +803,59 @@ public class MainActivity extends AppCompatActivity
                     mChannel.enableLights(true);
                     // Sets the notification light color for notifications posted to this
                     // channel, if the device supports this feature.
-                    mChannel.setLightColor(Color.RED);
+                    mChannel.setLightColor(Color.BLUE);
                     mChannel.enableVibration(true);
                     mChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
                     notificationManager.createNotificationChannel(mChannel);
 
-                    // Sets an ID for the notification, so it can be updated.
-                    int notifyID = 1;
-                    // The id of the channel.
-                    String CHANNEL_ID = "my_channel_01";
+
                     // Create a notification and set the notification channel.
-                    Notification notification = new Notification.Builder(context)
+                    Notification.Builder notification = new Notification.Builder(context)
                             .setContentIntent(pendingIntent)
                             .setContentTitle("Check your reminders!")
-                            .setContentText(notificationText)
                             .setSmallIcon(R.drawable.rr)
-                            .setChannelId(CHANNEL_ID)
-                            .setAutoCancel(true)
-                            .build();
+                            .setChannelId(id)
+                            .setAutoCancel(true);
+
+                    Notification.InboxStyle inboxStyle =
+                            new Notification.InboxStyle();
+
+                    // Sets a title for the Inbox in expanded layout
+                    inboxStyle.setBigContentTitle("You have the following overdue:");
+
+                    // Moves events into the expanded layout
+                    for (int i = 0; i < overdue.size(); i++) {
+                        inboxStyle.addLine(overdue.get(i));
+                    }
+                    // Moves the expanded layout object into the notification object.
+                    notification.setStyle(inboxStyle);
+
                     // Issue the notification.
-                    notificationManager.notify(notifyID, notification);
+                    notificationManager.notify(notificationID, notification.build());
+
                 } else {
 
-                    NotificationCompat.Builder builder = (NotificationCompat.Builder) new NotificationCompat.Builder(context)
+                    Notification.Builder notification = new Notification.Builder(context)
                             .setContentIntent(pendingIntent)
-                            .setSmallIcon(R.drawable.rr)
                             .setContentTitle("Check your reminders!")
-                            .setContentText(notificationText)
+                            .setSmallIcon(R.drawable.rr)
                             .setAutoCancel(true);
-//                .addAction(R.drawable.icon, "Snooze", pendingSnoozeIntent);
 
-                    notificationManager.notify(notificationID, builder.build());
+                    Notification.InboxStyle inboxStyle =
+                            new Notification.InboxStyle();
+
+                    // Sets a title for the Inbox in expanded layout
+                    inboxStyle.setBigContentTitle("You have the following overdue:");
+
+                    // Moves events into the expanded layout
+                    for (int i = 0; i < overdue.size(); i++) {
+                        inboxStyle.addLine(overdue.get(i));
+                    }
+                    // Moves the expanded layout object into the notification object.
+                    notification.setStyle(inboxStyle);
+
+                    // Issue the notification.
+                    notificationManager.notify(notificationID, notification.build());
                 }
             }
         }
@@ -784,6 +864,7 @@ public class MainActivity extends AppCompatActivity
     public class MyReminderAdapter extends BaseAdapter {
         public ArrayList<reminderItem> reminderDataAdapter;
 
+        private int lastPosition = -1;
 
         public MyReminderAdapter(ArrayList<reminderItem> reminderDataAdapter) {
             this.reminderDataAdapter = reminderDataAdapter;
@@ -810,6 +891,7 @@ public class MainActivity extends AppCompatActivity
             View myView = mInflater.inflate(R.layout.reminder_listview, null);
 
             final reminderItem s = reminderDataAdapter.get(position);
+
 
             Context context = App.getContext();
 
@@ -919,6 +1001,12 @@ public class MainActivity extends AppCompatActivity
                 colour.setBackgroundColor(ContextCompat.getColor(context, R.color.colorGreen));
             }
 
+            if (scrolling) {
+                Animation animation = AnimationUtils.loadAnimation(context, (position > lastPosition) ? R.anim.up_from_bottom : R.anim.down_from_top);
+                myView.startAnimation(animation);
+                lastPosition = position;
+            }
+
             return myView;
         }
 
@@ -928,11 +1016,9 @@ public class MainActivity extends AppCompatActivity
         Log.i("saveReminderToGoogle", "Starting");
         if (user != null) {
             Log.i("saveReminderToGoogle", "user is not null");
-//            database = FirebaseDatabase.getInstance();
-//            DatabaseReference myRef = database.getReference();
 
             // clear anything previously saved for this reminder (not completed, that's done separately)
-            myRef.child(user.getUid()).child(saveReminder.reminderID).removeValue();
+//            myRef.child(user.getUid()).child(saveReminder.reminderID).removeValue();
 
             // save back the reminder
             myRef.child(user.getUid()).child(saveReminder.reminderID).child("Name").setValue(saveReminder.name);
@@ -947,12 +1033,8 @@ public class MainActivity extends AppCompatActivity
     public static void saveCompletedToGoogle(reminderItem saveReminder) {
         if (user != null) {
             Log.i("saveCompletedToGoogle", "user is not null");
-//            database = FirebaseDatabase.getInstance();
-//            DatabaseReference myRef = database.getReference();
-
-            Log.i("saveCompletedToGoogle", "" + saveReminder);
             // clear anything previously saved for this item completed
-            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Completed").removeValue();
+//            myRef.child(user.getUid()).child(saveReminder.reminderID).child("Completed").removeValue();
 
             // save back the completed for this user
             try {
@@ -1065,7 +1147,7 @@ public class MainActivity extends AppCompatActivity
             for (reminderItem thisReminder : reminders) {
 
                 int notifyInt = (thisReminder.notify) ? 1 : 0;
-                Log.i("SavingDB", "thisReminder.reminderID " + thisReminder.reminderID);
+                Log.i("SavingDB", "thisReminder.name " + thisReminder.name);
                 remindersDB.execSQL("INSERT INTO reminders (id, name, tag, freq, notify, completed) VALUES ('" + thisReminder.reminderID + "' , '" + thisReminder.name + "' , '" + thisReminder.tag + "' , '" + thisReminder.frequency + "' , '" + notifyInt + "' , '" + ObjectSerializer.serialize(thisReminder.completed) + "')");
 
             }
@@ -1113,7 +1195,7 @@ public class MainActivity extends AppCompatActivity
 
             } while (c.moveToNext());
 
-
+            c.close();
         } catch (Exception e) {
 
             Log.i("LoadingDB", "Caught Error");
@@ -1194,6 +1276,7 @@ public class MainActivity extends AppCompatActivity
             Log.i("ImportDB", "Exception Caught" + e);
         }
         loadReminders();
+        Collections.sort(reminders);
         myAdapter.notifyDataSetChanged();
     }
 
@@ -1437,6 +1520,7 @@ public class MainActivity extends AppCompatActivity
 
     public static void saveSettings() {
         ed.putString("reminderDefault", reminderDefault).apply();
+        ed.putString("advancedWarning", advancedWarning).apply();
         ed.putInt("daysDefault", daysDefault).apply();
     }
 
@@ -1449,7 +1533,7 @@ public class MainActivity extends AppCompatActivity
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (addReminder.isShown() || recurringTV.isShown() || singleTV.isShown()) {
-                addReminder.setVisibility(View.INVISIBLE);
+                hideReminder();
                 hideFABOptions();
             } else {
                 finish();
@@ -1488,7 +1572,7 @@ public class MainActivity extends AppCompatActivity
     protected void onResume() {
         super.onResume();
         Log.i(TAG, "onResume");
-//        loadReminders();
+        loadReminders();
 //        loadFromGoogle();
         Collections.sort(reminders);
         myAdapter.notifyDataSetChanged();

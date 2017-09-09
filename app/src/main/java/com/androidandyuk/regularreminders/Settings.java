@@ -12,9 +12,14 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import static com.androidandyuk.regularreminders.MainActivity.sharedPreferences;
+import static com.androidandyuk.regularreminders.MainActivity.advancedWarning;
+import static com.androidandyuk.regularreminders.MainActivity.reminderDefault;
+
 public class Settings extends AppCompatActivity {
 
     Spinner defaultTypeSpinner;
+    Spinner warningSpinner;
     TextView daysDefault;
 
     public static ImageView shield;
@@ -35,7 +40,10 @@ public class Settings extends AppCompatActivity {
         defaultTypeSpinner = (Spinner) findViewById(R.id.defaultTypeSpinner);
         defaultTypeSpinner.setAdapter(new ArrayAdapter<>(this, R.layout.spinner_item_regular, reminderType.values()));
 
-        switch (MainActivity.reminderDefault) {
+        warningSpinner = (Spinner) findViewById(R.id.daysWarningSpinner);
+        warningSpinner.setAdapter(new ArrayAdapter<>(this, R.layout.spinner_item_regular, warningEnum.values()));
+
+        switch (reminderDefault) {
             case "Recurring":
                 defaultTypeSpinner.setSelection(0);
                 break;
@@ -44,6 +52,19 @@ public class Settings extends AppCompatActivity {
                 break;
             case "Choose":
                 defaultTypeSpinner.setSelection(2);
+                break;
+        }
+
+        advancedWarning = sharedPreferences.getString("advancedWarning", "One");
+        switch (advancedWarning) {
+            case "Due":
+                warningSpinner.setSelection(0);
+                break;
+            case "One":
+                warningSpinner.setSelection(1);
+                break;
+            case "Two":
+                warningSpinner.setSelection(2);
                 break;
         }
 
@@ -158,7 +179,9 @@ public class Settings extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         defaultTypeSpinner = (Spinner) findViewById(R.id.defaultTypeSpinner);
-        MainActivity.reminderDefault = defaultTypeSpinner.getSelectedItem().toString();
+        warningSpinner = (Spinner) findViewById(R.id.daysWarningSpinner);
+        reminderDefault = defaultTypeSpinner.getSelectedItem().toString();
+        advancedWarning = warningSpinner.getSelectedItem().toString();
         MainActivity.saveSettings();
         overridePendingTransition(R.anim.fadein, R.anim.fadeout);
     }

@@ -27,6 +27,19 @@ enum reminderType {
     }
 }
 
+enum warningEnum {
+    Due(1), One(2), Two(3);
+    private final int value;
+
+    private warningEnum(int value) {
+        this.value = value;
+    }
+
+    public int getValue() {
+        return value;
+    }
+}
+
 public class reminderItem implements Comparable<reminderItem> {
     String reminderID;
     String name;
@@ -95,6 +108,8 @@ public class reminderItem implements Comparable<reminderItem> {
         try {
             c.setTime(sdf.parse(o.completed.get(0)));
         } catch (ParseException e) {
+            e.printStackTrace();
+        } catch (IndexOutOfBoundsException e){
             e.printStackTrace();
         }
 
